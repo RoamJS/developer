@@ -76,7 +76,7 @@ const DeveloperContent: StageContent = () => {
   );
   useEffect(() => {
     if (initialLoading) {
-      authenticatedGet("developer-paths")
+      authenticatedGet("developer-path")
         .then((r) => setAllPaths(r.data.value || []))
         .catch(() => setAllPaths([]))
         .finally(() => setInitialLoading(false));
