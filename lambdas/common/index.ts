@@ -25,7 +25,7 @@ export const dynamo = new AWS.DynamoDB({
 export const s3 = new AWS.S3({ apiVersion: "2006-03-01", credentials });
 const roamjsHeaders: Record<string, string> = {
   Authorization: process.env.ROAMJS_DEVELOPER_TOKEN,
-  "x-roamjs-service": "staticSite",
+  "x-roamjs-service": "developer",
 };
 export const ses = new AWS.SES({ apiVersion: "2010-12-01", credentials });
 if (process.env.NODE_ENV === "development") {

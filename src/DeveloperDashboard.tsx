@@ -8,7 +8,7 @@ import {
   Toaster,
   Tooltip,
 } from "@blueprintjs/core";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BLOCK_REF_REGEX,
   createPage,
@@ -83,13 +83,14 @@ const DeveloperContent: StageContent = () => {
     }
   }, [initialLoading, setInitialLoading]);
   const prefix = useServiceField("prefix");
+  const sortedPaths = useMemo(() => paths.sort(), [paths]);
   return initialLoading ? (
     <Spinner />
   ) : (
     <div>
       <h4>Paths</h4>
       <ul>
-        {paths.map((p) => (
+        {sortedPaths.map((p) => (
           <li
             key={p}
             style={{
@@ -284,6 +285,10 @@ const DeveloperContent: StageContent = () => {
                 });
                 setNewPath("");
                 setAllPaths(r.data.paths);
+                developerToaster.show({
+                  message: `New path ${newPath} has been successfully reserved!`,
+                  intent: Intent.SUCCESS,
+                });
               })
               .catch((e) => setError(e.response?.data || e.message))
               .finally(() => setLoading(false));
