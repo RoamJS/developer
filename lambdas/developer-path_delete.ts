@@ -1,5 +1,6 @@
 import { APIGatewayProxyHandler } from "aws-lambda";
 import {
+  dynamo,
   emailCatch,
   getRoamJSUser,
   headers,
@@ -23,7 +24,19 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 
   await s3
     .deleteObjects({ Bucket: "roamjs.com", Delete: { Objects } })
-    .promise();
+    .promise()
+    .then(() =>
+      dynamo
+        .deleteItem({
+          TableName: "RoamJSExtensions",
+          Key: {
+            id: {
+              S: path,
+            },
+          },
+        })
+        .promise()
+    );
 
   return getRoamJSUser(event)
     .then(({ data }) => {
