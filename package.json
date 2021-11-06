@@ -1,0 +1,26 @@
+{
+  "name": "developer",
+  "version": "1.0.0",
+  "description": "Description for developer.",
+  "main": "./build/main.js",
+  "scripts": {
+    "build": "roamjs-scripts build",
+    "dev": "roamjs-scripts dev",
+    "lambdas": "roamjs-scripts lambdas",
+    "server": "localhost-lambdas"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.85",
+    "@types/react": "^17.0.34",
+    "@types/react-dom": "^17.0.11",
+    "localhost-lambdas": "^0.5.3",
+    "roamjs-scripts": "^0.12.5",
+    "typescript": "^4.4.4"
+  },
+  "dependencies": {
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "roamjs-components": "^0.26.11"
+  }
+}
