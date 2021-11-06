@@ -1,8 +1,15 @@
-import { toConfig, runExtension } from "roam-client";
-import { createConfigObserver } from "roamjs-components";
+import Dashboard from "./DeveloperDashboard";
+import { addStyle,toConfig, runExtension } from "roam-client";
+import { createConfigObserver, runService } from "roamjs-components";
+
+addStyle(`.roamjs-developer-path:hover {
+  background-color: #dddddd;
+}`);
 
 const ID = "developer";
-const CONFIG = toConfig(ID);
 runExtension(ID, () => {
-  createConfigObserver({ title: CONFIG, config: { tabs: [] } });
+  runService({
+    id: ID,
+    Dashboard,
+  });
 });
