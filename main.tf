@@ -51,8 +51,20 @@ module "roamjs_lambda" {
   name = "developer"
   lambdas = [
     { 
-      path = "developer", 
+      path = "developer-path", 
+      method = "get"
+    },
+    { 
+      path = "developer-path", 
       method = "post"
+    },
+    { 
+      path = "developer-path", 
+      method = "put"
+    },
+    { 
+      path = "developer-path", 
+      method = "delete"
     },
   ]
   aws_access_token = var.aws_access_token
