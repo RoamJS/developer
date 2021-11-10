@@ -35,7 +35,7 @@ if (process.env.NODE_ENV === "development") {
 type DeveloperMetadata = { paths: string[] };
 
 export const getRoamJSUser = (event: Pick<APIGatewayProxyEvent, "headers">) =>
-  axios.get<DeveloperMetadata>(`https://api.roamjs.com/user`, {
+  axios.get<DeveloperMetadata>(`https://lambda.roamjs.com/user`, {
     headers: {
       "x-roamjs-token":
         event.headers.Authorization || event.headers.authorization,
@@ -47,7 +47,7 @@ export const putRoamJSUser = (
   event: Pick<APIGatewayProxyEvent, "headers">,
   data: DeveloperMetadata
 ) =>
-  axios.put(`https://api.roamjs.com/user`, data, {
+  axios.put(`https://lambda.roamjs.com/user`, data, {
     headers: {
       "x-roamjs-token":
         event.headers.Authorization || event.headers.authorization,

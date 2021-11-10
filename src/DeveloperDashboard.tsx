@@ -41,6 +41,7 @@ import {
   useServiceGetMetadata,
   WrapServiceMainStage,
 } from "roamjs-components";
+import StripePanel from "./StripePanel";
 
 export const developerToaster = Toaster.create({
   position: Position.TOP,
@@ -360,6 +361,19 @@ const RequestPrefixContent: StageContent = ({ openPanel }) => {
   );
 };
 
+const RequestStripePanel: StageContent = ({ openPanel }) => {
+  const nextStage = useServiceNextStage(openPanel);
+  const pageUid = useServicePageUid();
+  return (
+    <>
+      <div style={{ marginBottom: 32 }}>
+        <StripePanel parentUid={pageUid} />
+      </div>
+      <ServiceNextButton onClick={nextStage} />
+    </>
+  );
+};
+
 const DeveloperDashboard = (): React.ReactElement => (
   <ServiceDashboard
     service={"developer"}
@@ -369,6 +383,10 @@ const DeveloperDashboard = (): React.ReactElement => (
       {
         component: RequestPrefixContent,
         setting: "Prefix",
+      },
+      {
+        component: RequestStripePanel,
+        setting: "Payout",
       },
     ]}
   />
