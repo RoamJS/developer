@@ -40,6 +40,8 @@ import {
   useServiceSetMetadata,
   useServiceGetMetadata,
   WrapServiceMainStage,
+  getSubTree,
+  getSettingIntFromTree,
 } from "roamjs-components";
 import StripePanel from "./StripePanel";
 
@@ -173,6 +175,10 @@ const DeveloperContent: StageContent = () => {
                           `[:find ?title :where [?b :node/title ?title][(clojure.string/starts-with? ?title  "${title}/")]]`
                         )
                         .map((r) => r[0]);
+                      const { children: premiumTree } = getSubTree({
+                        tree,
+                        key: "premium",
+                      });
                       authenticatedPut("developer-path", {
                         path: p,
                         blocks: children,
@@ -205,18 +211,22 @@ const DeveloperContent: StageContent = () => {
                           tree,
                           key: "entry",
                         }),
-                        premium: getSettingValuesFromTree({
-                          tree,
-                          key: "premium",
-                        }),
+                        premium: {
+                          price: getSettingIntFromTree({
+                            tree: premiumTree,
+                            key: "price",
+                          }),
+                          description: getSettingValuesFromTree({
+                            tree: premiumTree,
+                            key: "price",
+                          }),
+                          name: getSettingValueFromTree({
+                            tree: premiumTree,
+                            key: "price",
+                          }),
+                        },
                       })
-                        .then((r) => {
-                          setInputSetting({
-                            blockUid: getPageUidByPageTitle(title),
-                            value: r.data.etag,
-                            key: "ETag",
-                            index: 1,
-                          });
+                        .then(() => {
                           developerToaster.show({
                             message: "Documentation has updated successfully!",
                             intent: Intent.SUCCESS,

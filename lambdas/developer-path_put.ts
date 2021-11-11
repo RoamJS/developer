@@ -1,6 +1,8 @@
-import { APIGatewayProxyHandler } from "aws-lambda";
+import type { APIGatewayProxyHandler } from "aws-lambda";
+import type { DynamoDB } from "aws-sdk";
 import axios from "axios";
 import { TreeNode, ViewType } from "roam-client";
+import Stripe from "stripe";
 import {
   dynamo,
   emailCatch,
@@ -11,6 +13,10 @@ import {
   userError,
 } from "./common";
 
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+  apiVersion: "2020-08-27",
+  maxNetworkRetries: 3,
+});
 const Bucket = "roamjs.com";
 const toDoubleDigit = (n: number) => n.toString().padStart(2, "0");
 const viewTypeToPrefix = {
@@ -19,8 +25,100 @@ const viewTypeToPrefix = {
   numbered: "1. ",
 };
 
+type Premium = {
+  description: string[];
+  name: string;
+  price: number;
+};
+
+const updateDynamoEntry = async ({
+  path,
+  premium,
+  description,
+  entry,
+  Item,
+}: {
+  path: string;
+  premium: Premium;
+  description: string;
+  entry: string;
+  Item: DynamoDB.AttributeMap;
+}) => {
+  const updates: { key: string; value: string }[] = [];
+  if (description !== Item.description?.S) {
+    updates.push({ key: "description", value: description });
+  }
+  const src = entry || `https://roamjs.com/${path}/main.js`;
+  if (src !== Item.src?.S) {
+    updates.push({ key: "src", value: src });
+  }
+  if (!!premium !== !!Item.premium?.S) {
+    if (premium) {
+      await stripe.products
+        .create({
+          name:
+            premium.name ||
+            `RoamJS ${path
+              .split("-")
+              .map(
+                (p) =>
+                  `${p.slice(0, 1).toUpperCase()}${p.slice(1).toLowerCase()}`
+              )
+              .join(" ")}`,
+          description: premium.description.join("\n\n"),
+        })
+        .then((product) =>
+          stripe.prices
+            .create({
+              product: product.id,
+              currency: "usd",
+              unit_amount: premium.price * 100,
+              recurring: {
+                interval: "month",
+                interval_count: 1,
+              },
+            })
+            .then((price) => price.id)
+        ).then((price) => {
+          updates.push({ key: "premium", value: price });
+        })
+        .catch(emailCatch(`Failed to create product for ${path}.`));
+    } else {
+      await stripe.prices
+        .retrieve(Item.premium?.S)
+        .then((price) => stripe.products.del(price.product as string))
+        .then(() => updates.push({ key: "premium", value: "" }))
+        .catch(emailCatch(`Failed to delete product for ${path}.`));
+    }
+  }
+  return updates.length
+    ? dynamo
+        .updateItem({
+          TableName: "RoamJSExtensions",
+          Key: {
+            id: {
+              S: path,
+            },
+          },
+          UpdateExpression: `SET ${updates
+            .map(({ key }) => key.slice(0, 1))
+            .map((k) => `#${k}=:${k}`)
+            .join(", ")}`,
+          ExpressionAttributeNames: Object.fromEntries(
+            updates.map(({ key }) => [`#${key.slice(0, 1)}`, key])
+          ),
+          ExpressionAttributeValues: Object.fromEntries(
+            updates.map(({ key, value }) => [
+              `:${key.slice(0, 1)}`,
+              { S: value },
+            ])
+          ),
+        })
+        .promise()
+    : Promise.resolve();
+};
+
 export const handler: APIGatewayProxyHandler = async (event) => {
-  const userId = event.headers.Authorization;
   const {
     path,
     blocks,
@@ -40,7 +138,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     subpages: { [name: string]: { nodes: TreeNode[]; viewType: ViewType } };
     thumbnail?: string;
     entry?: string;
-    premium?: string[];
+    premium?: Premium;
   };
   if (blocks.length === 0) {
     return userError(
@@ -57,6 +155,23 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       "Description is too long. Please keep it 128 characters or fewer."
     );
   }
+  const { paths, stripeAccountId } = await getRoamJSUser(event)
+    .then(({ data }) => data)
+    .catch(() => ({ paths: [], stripeAccountId: undefined }));
+  if (!paths.includes(path)) {
+    return {
+      statusCode: 403,
+      body: `User does not have access to path ${path}`,
+      headers,
+    };
+  }
+  if (premium && !stripeAccountId) {
+    return {
+      statusCode: 403,
+      body: "Need to connect a stripe account id before publishing premium features for an extension",
+      headers,
+    };
+  }
 
   const frontmatter = `---
 description: "${description}"${
@@ -72,48 +187,6 @@ description: "${description}"${
   )}-${toDoubleDigit(today.getDate())}-${toDoubleDigit(
     today.getHours()
   )}-${toDoubleDigit(today.getMinutes())}`;
-  await s3
-    .upload({
-      Bucket,
-      Key: `markdown-version-cache/${path}/${version}.json`,
-      Body: event.body,
-      ContentType: "application/json",
-    })
-    .promise()
-    .then(() =>
-      dynamo
-        .updateItem({
-          TableName: "RoamJSExtensions",
-          Key: {
-            id: {
-              S: path,
-            },
-          },
-          UpdateExpression: "SET #d=:d, #s=:s, #p=:p",
-          ExpressionAttributeNames: {
-            "#d": "description",
-            "#s": "src",
-            "#p": "premium",
-          },
-          ExpressionAttributeValues: {
-            ":d": { S: description },
-            ":s": { S: entry || `https://roamjs.com/${path}/main.js` },
-            ":p": { SS: premium },
-          },
-        })
-        .promise()
-    );
-
-  const { paths, stripeAccountId } = await getRoamJSUser(event)
-    .then(({ data }) => data)
-    .catch(() => ({ paths: [], stripeAccountId: undefined }));
-  if (premium.length && !stripeAccountId) {
-    return {
-      statusCode: 403,
-      body: "Need to connect a stripe account id before publishing premium features for an extension",
-      headers,
-    };
-  }
 
   const replaceComponents = (text: string, prefix: string): string =>
     text
@@ -173,103 +246,128 @@ description: "${description}"${
     }`;
   };
 
-  if (!paths.includes(path)) {
-    return {
-      statusCode: 401,
-      body: `User does not have access to path ${path}`,
-      headers,
-    };
-  }
   const subpageKeys = new Set(
     Object.keys(subpages).map(
       (p) => `markdown/${path}/${p.replace(/ /g, "_").toLowerCase()}.md`
     )
   );
-  return listAll(`markdown/${path}/`)
-    .then((r) => {
-      const Objects = r.objects
-        .filter(({ Key }) => !subpageKeys.has(Key))
-        .map(({ Key }) => ({ Key }));
-      return Objects.length
-        ? s3
-            .deleteObjects({
-              Bucket,
-              Delete: {
-                Objects,
-              },
-            })
-            .promise()
-            .then((r) => {
-              console.log(`Deleted ${r.Deleted.length} subpages.`);
-            })
-        : Promise.resolve();
+  return s3
+    .upload({
+      Bucket,
+      Key: `markdown-version-cache/${path}/${version}.json`,
+      Body: event.body,
+      ContentType: "application/json",
     })
+    .promise()
     .then(() =>
-      Promise.all([
-        s3
-          .upload({
-            Bucket,
-            Key: `markdown/${path}.md`,
-            Body: `${frontmatter}${blocks
-              .map((b) => blockToMarkdown(b, viewType))
-              .join("")}`,
-            ContentType: "text/markdown",
-          })
-          .promise(),
-        ...Object.keys(subpages).map((p) =>
-          s3
-            .upload({
-              Bucket,
-              Key: `markdown/${path}/${p.replace(/ /g, "_").toLowerCase()}.md`,
-              Body: subpages[p].nodes
-                .map((b) => blockToMarkdown(b, subpages[p].viewType))
-                .join(""),
-              ContentType: "text/markdown",
-            })
-            .promise()
-        ),
-        ...(thumbnail
-          ? [
-              axios
-                .get(thumbnail, {
-                  responseType: "stream",
-                })
-                .then((r) =>
-                  s3
-                    .upload({
-                      Bucket,
-                      Key: `thumbnails/${path}.png`,
-                      Body: r.data,
-                      ContentType: "image/png",
-                    })
-                    .promise()
-                ),
-            ]
-          : []),
-      ])
-        .then((r) =>
-          axios
-            .post(
-              `https://api.github.com/repos/dvargas92495/roam-js-extensions/actions/workflows/isr.yaml/dispatches`,
-              { ref: "master", inputs: { extension: path } },
-              {
-                headers: {
-                  Accept: "application/vnd.github.inertia-preview+json",
-                  Authorization: `Basic ${Buffer.from(
-                    `dvargas92495:${process.env.ROAMJS_RELEASE_TOKEN}`
-                  ).toString("base64")}`,
-                },
-              }
-            )
-            .then(() => ({
-              etag: r[0].ETag,
-            }))
-        )
-        .then((r) => ({
-          statusCode: 200,
-          body: JSON.stringify(r),
-          headers,
-        }))
+      dynamo
+        .getItem({
+          TableName: "RoamJSExtensions",
+          Key: {
+            id: {
+              S: path,
+            },
+          },
+        })
+        .promise()
     )
+    .then(({ Item }) =>
+      Promise.all([
+        updateDynamoEntry({
+          Item,
+          description,
+          path,
+          premium,
+          entry,
+        }),
+        listAll(`markdown/${path}/`)
+          .then((r) => {
+            const Objects = r.objects
+              .filter(({ Key }) => !subpageKeys.has(Key))
+              .map(({ Key }) => ({ Key }));
+            return Objects.length
+              ? s3
+                  .deleteObjects({
+                    Bucket,
+                    Delete: {
+                      Objects,
+                    },
+                  })
+                  .promise()
+                  .then((r) => {
+                    console.log(`Deleted ${r.Deleted.length} subpages.`);
+                  })
+              : Promise.resolve();
+          })
+          .then(() =>
+            Promise.all([
+              s3
+                .upload({
+                  Bucket,
+                  Key: `markdown/${path}.md`,
+                  Body: `${frontmatter}${blocks
+                    .map((b) => blockToMarkdown(b, viewType))
+                    .join("")}`,
+                  ContentType: "text/markdown",
+                })
+                .promise(),
+              ...Object.keys(subpages).map((p) =>
+                s3
+                  .upload({
+                    Bucket,
+                    Key: `markdown/${path}/${p
+                      .replace(/ /g, "_")
+                      .toLowerCase()}.md`,
+                    Body: subpages[p].nodes
+                      .map((b) => blockToMarkdown(b, subpages[p].viewType))
+                      .join(""),
+                    ContentType: "text/markdown",
+                  })
+                  .promise()
+              ),
+              ...(thumbnail
+                ? [
+                    axios
+                      .get(thumbnail, {
+                        responseType: "stream",
+                      })
+                      .then((r) =>
+                        s3
+                          .upload({
+                            Bucket,
+                            Key: `thumbnails/${path}.png`,
+                            Body: r.data,
+                            ContentType: "image/png",
+                          })
+                          .promise()
+                      ),
+                  ]
+                : []),
+            ]).then((r) =>
+              axios
+                .post(
+                  `https://api.github.com/repos/dvargas92495/roam-js-extensions/actions/workflows/isr.yaml/dispatches`,
+                  { ref: "master", inputs: { extension: path } },
+                  {
+                    headers: {
+                      Accept: "application/vnd.github.inertia-preview+json",
+                      Authorization: `Basic ${Buffer.from(
+                        `dvargas92495:${process.env.ROAMJS_RELEASE_TOKEN}`
+                      ).toString("base64")}`,
+                    },
+                  }
+                )
+                .then(() => ({
+                  etag: r[0].ETag,
+                }))
+            )
+          ),
+      ])
+    )
+    .then(() => ({
+      statusCode: 200,
+      body: JSON.stringify({ success: true }),
+      headers,
+    }))
     .catch(emailCatch(`Failed to publish documentation for ${path}.`));
 };
