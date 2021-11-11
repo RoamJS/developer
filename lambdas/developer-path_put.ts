@@ -30,6 +30,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     subpages,
     thumbnail,
     entry,
+    premium,
   } = JSON.parse(event.body || "{}") as {
     path: string;
     blocks: TreeNode[];
@@ -39,6 +40,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     subpages: { [name: string]: { nodes: TreeNode[]; viewType: ViewType } };
     thumbnail?: string;
     entry?: string;
+    premium?: string[];
   };
   if (blocks.length === 0) {
     return userError(
@@ -55,6 +57,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       "Description is too long. Please keep it 128 characters or fewer."
     );
   }
+
   const frontmatter = `---
 description: "${description}"${
     contributors?.length ? `\ncontributors: "${contributors.join(", ")}"` : ""
@@ -86,18 +89,31 @@ description: "${description}"${
               S: path,
             },
           },
-          UpdateExpression: "SET #d=:d, #s=:s",
+          UpdateExpression: "SET #d=:d, #s=:s, #p=:p",
           ExpressionAttributeNames: {
             "#d": "description",
             "#s": "src",
+            "#p": "premium",
           },
           ExpressionAttributeValues: {
             ":d": { S: description },
             ":s": { S: entry || `https://roamjs.com/${path}/main.js` },
+            ":p": { SS: premium },
           },
         })
         .promise()
     );
+
+  const { paths, stripeAccountId } = await getRoamJSUser(event)
+    .then(({ data }) => data)
+    .catch(() => ({ paths: [], stripeAccountId: undefined }));
+  if (premium.length && !stripeAccountId) {
+    return {
+      statusCode: 403,
+      body: "Need to connect a stripe account id before publishing premium features for an extension",
+      headers,
+    };
+  }
 
   const replaceComponents = (text: string, prefix: string): string =>
     text
@@ -157,108 +173,103 @@ description: "${description}"${
     }`;
   };
 
-  return getRoamJSUser(event)
-    .then(({ data: { paths } }) => {
-      if (!paths.includes(path)) {
-        return {
-          statusCode: 401,
-          body: `User does not have access to path ${path}`,
-          headers,
-        };
-      }
-      const subpageKeys = new Set(
-        Object.keys(subpages).map(
-          (p) => `markdown/${path}/${p.replace(/ /g, "_").toLowerCase()}.md`
-        )
-      );
-      return listAll(`markdown/${path}/`)
-        .then((r) => {
-          const Objects = r.objects
-            .filter(({ Key }) => !subpageKeys.has(Key))
-            .map(({ Key }) => ({ Key }));
-          return Objects.length
-            ? s3
-                .deleteObjects({
-                  Bucket,
-                  Delete: {
-                    Objects,
-                  },
-                })
-                .promise()
-                .then((r) => {
-                  console.log(`Deleted ${r.Deleted.length} subpages.`);
-                })
-            : Promise.resolve();
-        })
-        .then(() =>
-          Promise.all([
-            s3
-              .upload({
-                Bucket,
-                Key: `markdown/${path}.md`,
-                Body: `${frontmatter}${blocks
-                  .map((b) => blockToMarkdown(b, viewType))
-                  .join("")}`,
-                ContentType: "text/markdown",
-              })
-              .promise(),
-            ...Object.keys(subpages).map((p) =>
-              s3
-                .upload({
-                  Bucket,
-                  Key: `markdown/${path}/${p
-                    .replace(/ /g, "_")
-                    .toLowerCase()}.md`,
-                  Body: subpages[p].nodes
-                    .map((b) => blockToMarkdown(b, subpages[p].viewType))
-                    .join(""),
-                  ContentType: "text/markdown",
-                })
-                .promise()
-            ),
-            ...(thumbnail
-              ? [
-                  axios
-                    .get(thumbnail, {
-                      responseType: "stream",
-                    })
-                    .then((r) =>
-                      s3
-                        .upload({
-                          Bucket,
-                          Key: `thumbnails/${path}.png`,
-                          Body: r.data,
-                          ContentType: "image/png",
-                        })
-                        .promise()
-                    ),
-                ]
-              : []),
-          ])
-            .then((r) =>
-              axios
-                .post(
-                  `https://api.github.com/repos/dvargas92495/roam-js-extensions/actions/workflows/isr.yaml/dispatches`,
-                  { ref: "master", inputs: { extension: path } },
-                  {
-                    headers: {
-                      Accept: "application/vnd.github.inertia-preview+json",
-                      Authorization: `Basic ${Buffer.from(
-                        `dvargas92495:${process.env.ROAMJS_RELEASE_TOKEN}`
-                      ).toString("base64")}`,
-                    },
-                  }
-                )
-                .then(() => ({
-                  etag: r[0].ETag,
-                }))
-            )
-            .then((r) => ({
-              statusCode: 200,
-              body: JSON.stringify(r),
-              headers,
-            }))
-        );
+  if (!paths.includes(path)) {
+    return {
+      statusCode: 401,
+      body: `User does not have access to path ${path}`,
+      headers,
+    };
+  }
+  const subpageKeys = new Set(
+    Object.keys(subpages).map(
+      (p) => `markdown/${path}/${p.replace(/ /g, "_").toLowerCase()}.md`
+    )
+  );
+  return listAll(`markdown/${path}/`)
+    .then((r) => {
+      const Objects = r.objects
+        .filter(({ Key }) => !subpageKeys.has(Key))
+        .map(({ Key }) => ({ Key }));
+      return Objects.length
+        ? s3
+            .deleteObjects({
+              Bucket,
+              Delete: {
+                Objects,
+              },
+            })
+            .promise()
+            .then((r) => {
+              console.log(`Deleted ${r.Deleted.length} subpages.`);
+            })
+        : Promise.resolve();
     })
+    .then(() =>
+      Promise.all([
+        s3
+          .upload({
+            Bucket,
+            Key: `markdown/${path}.md`,
+            Body: `${frontmatter}${blocks
+              .map((b) => blockToMarkdown(b, viewType))
+              .join("")}`,
+            ContentType: "text/markdown",
+          })
+          .promise(),
+        ...Object.keys(subpages).map((p) =>
+          s3
+            .upload({
+              Bucket,
+              Key: `markdown/${path}/${p.replace(/ /g, "_").toLowerCase()}.md`,
+              Body: subpages[p].nodes
+                .map((b) => blockToMarkdown(b, subpages[p].viewType))
+                .join(""),
+              ContentType: "text/markdown",
+            })
+            .promise()
+        ),
+        ...(thumbnail
+          ? [
+              axios
+                .get(thumbnail, {
+                  responseType: "stream",
+                })
+                .then((r) =>
+                  s3
+                    .upload({
+                      Bucket,
+                      Key: `thumbnails/${path}.png`,
+                      Body: r.data,
+                      ContentType: "image/png",
+                    })
+                    .promise()
+                ),
+            ]
+          : []),
+      ])
+        .then((r) =>
+          axios
+            .post(
+              `https://api.github.com/repos/dvargas92495/roam-js-extensions/actions/workflows/isr.yaml/dispatches`,
+              { ref: "master", inputs: { extension: path } },
+              {
+                headers: {
+                  Accept: "application/vnd.github.inertia-preview+json",
+                  Authorization: `Basic ${Buffer.from(
+                    `dvargas92495:${process.env.ROAMJS_RELEASE_TOKEN}`
+                  ).toString("base64")}`,
+                },
+              }
+            )
+            .then(() => ({
+              etag: r[0].ETag,
+            }))
+        )
+        .then((r) => ({
+          statusCode: 200,
+          body: JSON.stringify(r),
+          headers,
+        }))
+    )
     .catch(emailCatch(`Failed to publish documentation for ${path}.`));
 };

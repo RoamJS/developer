@@ -1,5 +1,5 @@
 import AWS from "aws-sdk";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 
 export const headers = {
@@ -35,13 +35,16 @@ if (process.env.NODE_ENV === "development") {
 type DeveloperMetadata = { paths: string[] };
 
 export const getRoamJSUser = (event: Pick<APIGatewayProxyEvent, "headers">) =>
-  axios.get<DeveloperMetadata>(`https://lambda.roamjs.com/user`, {
-    headers: {
-      "x-roamjs-token":
-        event.headers.Authorization || event.headers.authorization,
-      ...roamjsHeaders,
-    },
-  });
+  axios.get<DeveloperMetadata & { stripeAccountId: string }>(
+    `https://lambda.roamjs.com/user`,
+    {
+      headers: {
+        "x-roamjs-token":
+          event.headers.Authorization || event.headers.authorization,
+        ...roamjsHeaders,
+      },
+    }
+  );
 
 export const putRoamJSUser = (
   event: Pick<APIGatewayProxyEvent, "headers">,
@@ -82,7 +85,7 @@ export const listAll = async (
   return { objects, prefixes };
 };
 
-export const emailError = (subject: string, e: Error): Promise<string> =>
+export const emailError = (subject: string, e: AxiosError): Promise<string> =>
   ses
     .sendEmail({
       Destination: {
@@ -94,7 +97,11 @@ export const emailError = (subject: string, e: Error): Promise<string> =>
             Charset: "UTF-8",
             Data: `An error was thrown in a RoamJS lambda:
 
-${e.name}: ${e.message}
+${e.name}: ${
+              typeof e.response?.data === "object"
+                ? e.response.data.message || JSON.stringify(e.response.data)
+                : e.response.data || e.message
+            }
 ${e.stack}`,
           },
         },
@@ -110,7 +117,7 @@ ${e.stack}`,
 
 export const emailCatch =
   (subject: string) =>
-  (e: Error): Promise<APIGatewayProxyResult> =>
+  (e: AxiosError): Promise<APIGatewayProxyResult> =>
     emailError(subject, e).then((id) => ({
       statusCode: 500,
       body: `Unknown error - Message Id ${id}`,

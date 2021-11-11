@@ -205,6 +205,10 @@ const DeveloperContent: StageContent = () => {
                           tree,
                           key: "entry",
                         }),
+                        premium: getSettingValuesFromTree({
+                          tree,
+                          key: "premium",
+                        }),
                       })
                         .then((r) => {
                           setInputSetting({
