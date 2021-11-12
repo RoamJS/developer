@@ -35,7 +35,7 @@ if (process.env.NODE_ENV === "development") {
 type DeveloperMetadata = { paths: string[] };
 
 export const getRoamJSUser = (event: Pick<APIGatewayProxyEvent, "headers">) =>
-  axios.get<DeveloperMetadata & { stripeAccountId: string }>(
+  axios.get<DeveloperMetadata & { stripeAccountId: string, email: string }>(
     `https://lambda.roamjs.com/user`,
     {
       headers: {

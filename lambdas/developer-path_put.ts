@@ -79,7 +79,8 @@ const updateDynamoEntry = async ({
               },
             })
             .then((price) => price.id)
-        ).then((price) => {
+        )
+        .then((price) => {
           updates.push({ key: "premium", value: price });
         })
         .catch(emailCatch(`Failed to create product for ${path}.`));
@@ -155,9 +156,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       "Description is too long. Please keep it 128 characters or fewer."
     );
   }
-  const { paths, stripeAccountId } = await getRoamJSUser(event)
+  const { paths, stripeAccountId, email } = await getRoamJSUser(event)
     .then(({ data }) => data)
-    .catch(() => ({ paths: [], stripeAccountId: undefined }));
+    .catch(() => ({ paths: [], stripeAccountId: undefined, email: undefined }));
   if (!paths.includes(path)) {
     return {
       statusCode: 403,
@@ -165,7 +166,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       headers,
     };
   }
-  if (premium && !stripeAccountId) {
+  if (premium && (!stripeAccountId || email !== "dvargas92495@gmail.com")) {
     return {
       statusCode: 403,
       body: "Need to connect a stripe account id before publishing premium features for an extension",
