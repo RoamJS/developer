@@ -211,7 +211,7 @@ const DeveloperContent: StageContent = () => {
                           tree,
                           key: "entry",
                         }),
-                        premium: {
+                        premium: premiumTree.length ? {
                           price: getSettingIntFromTree({
                             tree: premiumTree,
                             key: "price",
@@ -224,7 +224,7 @@ const DeveloperContent: StageContent = () => {
                             tree: premiumTree,
                             key: "price",
                           }),
-                        },
+                        } : undefined,
                       })
                         .then(() => {
                           developerToaster.show({
