@@ -34,10 +34,6 @@ variable "stripe_secret" {
     type = string
 }
 
-variable "encryption_secret" {
-  type = string
-}
-
 provider "aws" {
   region = "us-east-1"
   access_key = var.aws_access_token
@@ -74,10 +70,6 @@ module "roamjs_lambda" {
       path = "developer-path", 
       method = "delete"
     },
-    { 
-      path = "developer-token", 
-      method = "put"
-    },
   ]
   aws_access_token = var.aws_access_token
   aws_secret_token = var.aws_secret_token
@@ -89,10 +81,4 @@ resource "github_actions_secret" "stripe_secret" {
   repository       = "roamjs-developer"
   secret_name      = "STRIPE_SECRET_KEY"
   plaintext_value  = var.stripe_secret
-}
-
-resource "github_actions_secret" "encryption_secret" {
-  repository       = "roam-js-extensions"
-  secret_name      = "ENCRYPTION_SECRET"
-  plaintext_value  = var.encryption_secret
 }
