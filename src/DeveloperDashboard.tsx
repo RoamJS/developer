@@ -5,6 +5,7 @@ import {
   Label,
   Position,
   Spinner,
+  SpinnerSize,
   Toaster,
   Tooltip,
 } from "@blueprintjs/core";
@@ -20,6 +21,7 @@ import {
   getTreeByBlockUid,
   getTreeByPageName,
   openBlockInSidebar,
+  localStorageSet,
   TreeNode,
 } from "roam-client";
 import {
@@ -29,7 +31,6 @@ import {
   StageContent,
   ServiceNextButton,
   setInputSetting,
-  SERVICE_TOKEN_STAGE,
   useAuthenticatedDelete,
   useAuthenticatedPost,
   useAuthenticatedGet,
@@ -43,6 +44,7 @@ import {
   getSubTree,
   getSettingIntFromTree,
 } from "roamjs-components";
+import useRoamJSTokenWarning from "roamjs-components/dist/hooks/useRoamJSTokenWarning";
 import StripePanel from "./StripePanel";
 
 export const developerToaster = Toaster.create({
@@ -211,20 +213,22 @@ const DeveloperContent: StageContent = () => {
                           tree,
                           key: "entry",
                         }),
-                        premium: premiumTree.length ? {
-                          price: getSettingIntFromTree({
-                            tree: premiumTree,
-                            key: "price",
-                          }),
-                          description: getSettingValuesFromTree({
-                            tree: premiumTree,
-                            key: "price",
-                          }),
-                          name: getSettingValueFromTree({
-                            tree: premiumTree,
-                            key: "price",
-                          }),
-                        } : undefined,
+                        premium: premiumTree.length
+                          ? {
+                              price: getSettingIntFromTree({
+                                tree: premiumTree,
+                                key: "price",
+                              }),
+                              description: getSettingValuesFromTree({
+                                tree: premiumTree,
+                                key: "price",
+                              }),
+                              name: getSettingValueFromTree({
+                                tree: premiumTree,
+                                key: "price",
+                              }),
+                            }
+                          : undefined,
                       })
                         .then(() => {
                           developerToaster.show({
@@ -388,22 +392,24 @@ const RequestStripePanel: StageContent = ({ openPanel }) => {
   );
 };
 
-const DeveloperDashboard = (): React.ReactElement => (
-  <ServiceDashboard
-    service={"developer"}
-    stages={[
-      SERVICE_TOKEN_STAGE,
-      WrapServiceMainStage(DeveloperContent),
-      {
-        component: RequestPrefixContent,
-        setting: "Prefix",
-      },
-      {
-        component: RequestStripePanel,
-        setting: "Payout",
-      },
-    ]}
-  />
-);
+const DeveloperDashboard = (): React.ReactElement => {
+  useRoamJSTokenWarning();
+  return (
+    <ServiceDashboard
+      service={"developer"}
+      stages={[
+        WrapServiceMainStage(DeveloperContent),
+        {
+          component: RequestPrefixContent,
+          setting: "Prefix",
+        },
+        {
+          component: RequestStripePanel,
+          setting: "Payout",
+        },
+      ]}
+    />
+  );
+};
 
 export default DeveloperDashboard;
