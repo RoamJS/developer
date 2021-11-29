@@ -24,7 +24,9 @@ export const dynamo = new AWS.DynamoDB({
 
 export const s3 = new AWS.S3({ apiVersion: "2006-03-01", credentials });
 const roamjsHeaders: Record<string, string> = {
-  Authorization: process.env.ROAMJS_DEVELOPER_TOKEN,
+  Authorization: `Bearer ${Buffer.from(
+    `dvargas92495@gmail.com:${process.env.ROAMJS_DEVELOPER_TOKEN}`
+  ).toString("base64")}`,
   "x-roamjs-service": "developer",
 };
 export const ses = new AWS.SES({ apiVersion: "2010-12-01", credentials });
@@ -35,7 +37,7 @@ if (process.env.NODE_ENV === "development") {
 type DeveloperMetadata = { paths: string[] };
 
 export const getRoamJSUser = (event: Pick<APIGatewayProxyEvent, "headers">) =>
-  axios.get<DeveloperMetadata & { stripeAccountId: string, email: string }>(
+  axios.get<DeveloperMetadata & { stripeAccountId: string; email: string }>(
     `https://lambda.roamjs.com/user`,
     {
       headers: {
