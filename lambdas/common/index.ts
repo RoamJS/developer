@@ -27,7 +27,7 @@ const roamjsHeaders: Record<string, string> = {
   Authorization: `Bearer ${Buffer.from(
     `dvargas92495@gmail.com:${process.env.ROAMJS_DEVELOPER_TOKEN}`
   ).toString("base64")}`,
-  "x-roamjs-service": "developer",
+  "x-roamjs-extension": "developer",
 };
 export const ses = new AWS.SES({ apiVersion: "2010-12-01", credentials });
 if (process.env.NODE_ENV === "development") {

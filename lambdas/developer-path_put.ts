@@ -29,6 +29,7 @@ type Premium = {
   description: string[];
   name: string;
   price: number;
+  usage?: "licensed" | "metered";
 };
 
 const updateDynamoEntry = async ({
@@ -76,6 +77,7 @@ const updateDynamoEntry = async ({
               recurring: {
                 interval: "month",
                 interval_count: 1,
+                usage_type: premium.usage || "licensed",
               },
             })
             .then((price) => price.id)
