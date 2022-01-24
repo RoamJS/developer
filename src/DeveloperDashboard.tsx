@@ -221,11 +221,15 @@ const DeveloperContent: StageContent = () => {
                               }),
                               description: getSettingValuesFromTree({
                                 tree: premiumTree,
-                                key: "price",
+                                key: "description",
                               }),
                               name: getSettingValueFromTree({
                                 tree: premiumTree,
-                                key: "price",
+                                key: "name",
+                              }),
+                              usage: getSettingValueFromTree({
+                                tree: premiumTree,
+                                key: "usage",
                               }),
                             }
                           : undefined,
