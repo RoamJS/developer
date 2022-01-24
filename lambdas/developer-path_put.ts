@@ -202,6 +202,10 @@ description: "${description}"${
         (_, id) => `<YouTube id={"${id}"} />`
       )
       .replace(
+        /{{(?:\[\[)?video(?:\]\])?:(?:\s)*([^\s]+)(?:\s)*}}/g,
+        (_, id) => `<DemoVideo src={"${id}"} />`
+      )
+      .replace(
         new RegExp(`\\[(.*?)\\]\\(\\[\\[${path}/(.*?)\\]\\]\\)`, "g"),
         (_, label, page) =>
           `[${label}](/extensions/${path}/${page
