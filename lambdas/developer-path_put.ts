@@ -217,6 +217,7 @@ description: "${description}"${
         (_, label) => `[${label}](/extensions/${path})`
       )
       .replace(/\^\^(.*?)\^\^/g, (_, i) => `<Highlight>${i}</Highlight>`)
+      .replace(/{{premium}}/g, "<Premium />")
       .replace(/__/g, "_")
       .replace(new RegExp(String.fromCharCode(160), "g"), " ")
       .replace(/```$/, "\n```")
