@@ -10,41 +10,38 @@ import {
   Tooltip,
 } from "@blueprintjs/core";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { BLOCK_REF_REGEX } from "roamjs-components/dom/constants";
+import createPage from "roamjs-components/writes/createPage";
+import getPageTitleByBlockUid from "roamjs-components/queries/getPageTitleByBlockUid";
+import getPageTitlesStartingWithPrefix from "roamjs-components/queries/getPageTitlesStartingWithPrefix";
+import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
+import getPageViewType from "roamjs-components/queries/getPageViewType";
+import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
+import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
+import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
+import openBlockInSidebar from "roamjs-components/writes/openBlockInSidebar";
+import { TreeNode } from "roamjs-components/types";
 import {
-  BLOCK_REF_REGEX,
-  createPage,
-  getPageTitleByBlockUid,
-  getPageTitlesStartingWithPrefix,
-  getPageUidByPageTitle,
-  getPageViewType,
-  getTextByBlockUid,
-  getTreeByBlockUid,
-  getTreeByPageName,
-  openBlockInSidebar,
-  localStorageSet,
-  TreeNode,
-} from "roam-client";
-import {
-  getSettingValueFromTree,
-  getSettingValuesFromTree,
   ServiceDashboard,
   StageContent,
   ServiceNextButton,
   setInputSetting,
-  useAuthenticatedDelete,
-  useAuthenticatedPost,
-  useAuthenticatedGet,
-  useAuthenticatedPut,
   useServiceNextStage,
   useServicePageUid,
   useServiceField,
   useServiceSetMetadata,
   useServiceGetMetadata,
   WrapServiceMainStage,
-  getSubTree,
-  getSettingIntFromTree,
 } from "roamjs-components";
-import useRoamJSTokenWarning from "roamjs-components/dist/hooks/useRoamJSTokenWarning";
+import getSettingValueFromTree from "roamjs-components/util/getSettingValueFromTree";
+import getSettingValuesFromTree from "roamjs-components/util/getSettingValuesFromTree";
+import getSettingIntFromTree from "roamjs-components/util/getSettingIntFromTree";
+import getSubTree from "roamjs-components/util/getSubTree";
+import apiGet from "roamjs-components/util/apiGet";
+import apiPost from "roamjs-components/util/apiPost";
+import apiPut from "roamjs-components/util/apiPut";
+import apiDelete from "roamjs-components/util/apiDelete";
+import useRoamJSTokenWarning from "roamjs-components/hooks/useRoamJSTokenWarning";
 import StripePanel from "./StripePanel";
 
 export const developerToaster = Toaster.create({
@@ -67,10 +64,6 @@ const DeveloperContent: StageContent = () => {
   const [paths, setPaths] = useState<string[]>([]);
   const setMetadataPaths = useServiceSetMetadata("paths");
   const [newPath, setNewPath] = useState("");
-  const authenticatedGet = useAuthenticatedGet();
-  const authenticatedPost = useAuthenticatedPost();
-  const authenticatedPut = useAuthenticatedPut();
-  const authenticatedDelete = useAuthenticatedDelete();
   const [error, setError] = useState("");
   const setAllPaths = useCallback(
     (ps) => {
@@ -81,10 +74,14 @@ const DeveloperContent: StageContent = () => {
   );
   useEffect(() => {
     if (initialLoading) {
-      authenticatedGet("developer-path")
-        .then((r) => setAllPaths(r.data.value || []))
-        .catch(() => setAllPaths([]))
-        .finally(() => setInitialLoading(false));
+      Promise.all([
+        apiGet("developer-path")
+          .then((r) => setAllPaths(r.data.value || []))
+          .catch(() => setAllPaths([])),
+        apiGet("check").then(
+          (r) => !r.data.success && apiPost("developer-init")
+        ).catch(console.error),
+      ]).finally(() => setInitialLoading(false));
     }
   }, [initialLoading, setInitialLoading]);
   const prefix = useServiceField("prefix");
@@ -111,13 +108,18 @@ const DeveloperContent: StageContent = () => {
               }}
               onClick={(e) => {
                 const title = `${prefix}${p}`;
-                const uid =
-                  getPageUidByPageTitle(title) || createPage({ title });
-                if (e.shiftKey) {
-                  openBlockInSidebar(uid);
-                } else {
-                  window.roamAlphaAPI.ui.mainWindow.openPage({ page: { uid } });
-                }
+                const uid = getPageUidByPageTitle(title);
+                return (
+                  uid ? Promise.resolve(uid) : createPage({ title })
+                ).then((uid) => {
+                  if (e.shiftKey) {
+                    openBlockInSidebar(uid);
+                  } else {
+                    window.roamAlphaAPI.ui.mainWindow.openPage({
+                      page: { uid },
+                    });
+                  }
+                });
               }}
             >
               {p}
@@ -133,7 +135,9 @@ const DeveloperContent: StageContent = () => {
                     setError("");
                     setTimeout(() => {
                       const title = `${prefix}${p}`;
-                      const tree = getTreeByPageName(title);
+                      const tree = getFullTreeByParentUid(
+                        getPageUidByPageTitle(title)
+                      ).children;
                       const { children, viewType } = tree.find((t) =>
                         /documentation/i.test(t.text)
                       ) || {
@@ -145,7 +149,7 @@ const DeveloperContent: StageContent = () => {
                       const resolveRefsInNode = (t: TreeNode) => {
                         t.text = t.text
                           .replace(EMBED_REF_REGEX, (_, blockUid) => {
-                            const tree = getTreeByBlockUid(blockUid);
+                            const tree = getFullTreeByParentUid(blockUid);
                             t.children.push(...tree.children);
                             t.heading = tree.heading;
                             t.viewType = tree.viewType || "bullet";
@@ -174,14 +178,19 @@ const DeveloperContent: StageContent = () => {
                       children.forEach(resolveRefsInNode);
                       const subpageTitles = window.roamAlphaAPI
                         .q(
-                          `[:find ?title :where [?b :node/title ?title][(clojure.string/starts-with? ?title  "${title}/")]]`
+                          `[:find 
+                              (pull ?b [:node/title :block/uid [:children/view-type :as "viewType"]]) 
+                            :where 
+                              [?b :node/title ?title] 
+                              [(clojure.string/starts-with? ?title  "${title}/")]
+                            ]`
                         )
-                        .map((r) => r[0]);
+                        .map((r) => r[0] as { title: string; uid: string; viewType: string });
                       const { children: premiumTree } = getSubTree({
                         tree,
                         key: "premium",
                       });
-                      authenticatedPut("developer-path", {
+                      apiPut("developer-path", {
                         path: p,
                         blocks: children,
                         viewType,
@@ -195,13 +204,15 @@ const DeveloperContent: StageContent = () => {
                         }),
                         subpages: Object.fromEntries(
                           subpageTitles.map((t) => [
-                            t.substring(title.length + 1),
+                            t.title.substring(title.length + 1),
                             {
-                              nodes: getTreeByPageName(t).map((t) => {
-                                resolveRefsInNode(t);
-                                return t;
-                              }),
-                              viewType: getPageViewType(t),
+                              nodes: getFullTreeByParentUid(t.uid).children.map(
+                                (t) => {
+                                  resolveRefsInNode(t);
+                                  return t;
+                                }
+                              ),
+                              viewType: t.viewType,
                             },
                           ])
                         ),
@@ -259,7 +270,7 @@ const DeveloperContent: StageContent = () => {
                   onClick={() => {
                     setLoading(true);
                     setError("");
-                    authenticatedDelete(
+                    apiDelete(
                       `developer-path?path=${encodeURIComponent(p)}`
                     )
                       .then((r) => {
@@ -300,7 +311,7 @@ const DeveloperContent: StageContent = () => {
         <Button
           onClick={() => {
             setLoading(true);
-            authenticatedPost("developer-path", { path: newPath })
+            apiPost("developer-path", { path: newPath })
               .then((r) => {
                 createPage({
                   title: newPath,
