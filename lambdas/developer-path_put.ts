@@ -30,6 +30,7 @@ type Premium = {
   name: string;
   price: number;
   usage?: "licensed" | "metered";
+  quantity?: number;
 };
 
 const updateDynamoEntry = async ({
@@ -79,6 +80,12 @@ const updateDynamoEntry = async ({
                 interval_count: 1,
                 usage_type: premium.usage || "licensed",
               },
+              transform_quantity: premium.quantity
+                ? null
+                : {
+                    divide_by: premium.quantity,
+                    round: "up",
+                  },
             })
             .then((price) => price.id)
         )
