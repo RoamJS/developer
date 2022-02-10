@@ -1,7 +1,7 @@
 import type { APIGatewayProxyHandler } from "aws-lambda";
 import type { DynamoDB } from "aws-sdk";
 import axios from "axios";
-import { TreeNode, ViewType } from "roam-client";
+import type { TreeNode, ViewType } from "roamjs-components/types";
 import Stripe from "stripe";
 import {
   dynamo,

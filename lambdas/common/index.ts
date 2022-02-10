@@ -102,7 +102,7 @@ export const emailError = (subject: string, e: AxiosError): Promise<string> =>
 ${e.name}: ${
               typeof e.response?.data === "object"
                 ? e.response.data.message || JSON.stringify(e.response.data)
-                : e.response.data || e.message
+                : e.response?.data || e.message
             }
 ${e.stack}`,
           },
