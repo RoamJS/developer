@@ -75,12 +75,14 @@ const updateDynamoEntry = async ({
                 interval_count: 1,
                 usage_type: premium.usage || "licensed",
               },
-              transform_quantity: premium.quantity
+              ...(premium.quantity
                 ? {
-                    divide_by: premium.quantity,
-                    round: "up",
+                    transform_quantity: {
+                      divide_by: premium.quantity,
+                      round: "up",
+                    },
                   }
-                : null,
+                : null),
             })
             .then((price) => price.id)
         )
