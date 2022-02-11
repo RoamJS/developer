@@ -18,18 +18,18 @@ import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import openBlockInSidebar from "roamjs-components/writes/openBlockInSidebar";
 import { TreeNode } from "roamjs-components/types";
+import setInputSetting from "roamjs-components/util/setInputSetting";
 import {
   ServiceDashboard,
   StageContent,
-  ServiceNextButton,
-  setInputSetting,
-  useServiceNextStage,
-  useServicePageUid,
-  useServiceField,
-  useServiceSetMetadata,
-  useServiceGetMetadata,
-  WrapServiceMainStage,
-} from "roamjs-components";
+  NextButton as ServiceNextButton,
+  useNextStage as useServiceNextStage,
+  usePageUid as useServicePageUid,
+  useField as useServiceField,
+  useSetMetadata as useServiceSetMetadata,
+  useGetMetadata as useServiceGetMetadata,
+  MainStage as WrapServiceMainStage,
+} from "roamjs-components/components/ServiceComponents";
 import getSettingValueFromTree from "roamjs-components/util/getSettingValueFromTree";
 import getSettingValuesFromTree from "roamjs-components/util/getSettingValuesFromTree";
 import getSettingIntFromTree from "roamjs-components/util/getSettingIntFromTree";
