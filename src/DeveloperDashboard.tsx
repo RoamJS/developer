@@ -5,7 +5,6 @@ import {
   Label,
   Position,
   Spinner,
-  SpinnerSize,
   Toaster,
   Tooltip,
 } from "@blueprintjs/core";
@@ -15,9 +14,7 @@ import createPage from "roamjs-components/writes/createPage";
 import getPageTitleByBlockUid from "roamjs-components/queries/getPageTitleByBlockUid";
 import getPageTitlesStartingWithPrefix from "roamjs-components/queries/getPageTitlesStartingWithPrefix";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
-import getPageViewType from "roamjs-components/queries/getPageViewType";
 import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
-import getBasicTreeByParentUid from "roamjs-components/queries/getBasicTreeByParentUid";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import openBlockInSidebar from "roamjs-components/writes/openBlockInSidebar";
 import { TreeNode } from "roamjs-components/types";
@@ -241,6 +238,10 @@ const DeveloperContent: StageContent = () => {
                               usage: getSettingValueFromTree({
                                 tree: premiumTree,
                                 key: "usage",
+                              }),
+                              quantity: getSettingIntFromTree({
+                                tree: premiumTree,
+                                key: "quantity",
                               }),
                             }
                           : undefined,

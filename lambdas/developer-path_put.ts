@@ -3,15 +3,10 @@ import type { DynamoDB } from "aws-sdk";
 import axios from "axios";
 import type { TreeNode, ViewType } from "roamjs-components/types";
 import Stripe from "stripe";
-import {
-  dynamo,
-  emailCatch,
-  getRoamJSUser,
-  headers,
-  listAll,
-  s3,
-  userError,
-} from "./common";
+import { dynamo, listAll, s3, userError } from "./common";
+import emailCatch from "roamjs-components/backend/emailCatch";
+import headers from "roamjs-components/backend/headers";
+import { awsGetRoamJSUser } from "roamjs-components/backend/getRoamJSUser";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
   apiVersion: "2020-08-27",
@@ -81,11 +76,11 @@ const updateDynamoEntry = async ({
                 usage_type: premium.usage || "licensed",
               },
               transform_quantity: premium.quantity
-                ? null
-                : {
+                ? {
                     divide_by: premium.quantity,
                     round: "up",
-                  },
+                  }
+                : null,
             })
             .then((price) => price.id)
         )
@@ -128,7 +123,17 @@ const updateDynamoEntry = async ({
     : Promise.resolve();
 };
 
-export const handler: APIGatewayProxyHandler = async (event) => {
+export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
+  path: string;
+  blocks: TreeNode[];
+  viewType: ViewType;
+  description: string;
+  contributors: string[];
+  subpages: { [name: string]: { nodes: TreeNode[]; viewType: ViewType } };
+  thumbnail?: string;
+  entry?: string;
+  premium?: Premium;
+}>(async (user, body) => {
   const {
     path,
     blocks,
@@ -139,17 +144,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     thumbnail,
     entry,
     premium,
-  } = JSON.parse(event.body || "{}") as {
-    path: string;
-    blocks: TreeNode[];
-    viewType: ViewType;
-    description: string;
-    contributors: string[];
-    subpages: { [name: string]: { nodes: TreeNode[]; viewType: ViewType } };
-    thumbnail?: string;
-    entry?: string;
-    premium?: Premium;
-  };
+  } = body;
   if (blocks.length === 0) {
     return userError(
       'Missing documentation content. Create a "Documentation" block on your extensions page and nest the content under it.'
@@ -165,9 +160,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       "Description is too long. Please keep it 128 characters or fewer."
     );
   }
-  const { paths, stripeAccountId, email } = await getRoamJSUser(event)
-    .then(({ data }) => data)
-    .catch(() => ({ paths: [], stripeAccountId: undefined, email: undefined }));
+  const paths = user.paths as string[];
+  const stripeAccountId = user.stripeAccountId as string;
+  const { email } = user;
   if (!paths.includes(path)) {
     return {
       statusCode: 403,
@@ -270,7 +265,7 @@ description: "${description}"${
     .upload({
       Bucket,
       Key: `markdown-version-cache/${path}/${version}.json`,
-      Body: event.body,
+      Body: JSON.stringify(body),
       ContentType: "application/json",
     })
     .promise()
@@ -385,4 +380,4 @@ description: "${description}"${
       headers,
     }))
     .catch(emailCatch(`Failed to publish documentation for ${path}.`));
-};
+});

@@ -1,10 +1,6 @@
 import AWS from "aws-sdk";
-import axios, { AxiosError } from "axios";
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
-
-export const headers = {
-  "Access-Control-Allow-Origin": "https://roamresearch.com",
-};
+import { APIGatewayProxyResult } from "aws-lambda";
+import headers from "roamjs-components/backend/headers";
 
 export const userError = (body: string): APIGatewayProxyResult => ({
   statusCode: 400,
@@ -23,42 +19,9 @@ export const dynamo = new AWS.DynamoDB({
 });
 
 export const s3 = new AWS.S3({ apiVersion: "2006-03-01", credentials });
-const roamjsHeaders: Record<string, string> = {
-  Authorization: `Bearer ${Buffer.from(
-    `dvargas92495@gmail.com:${process.env.ROAMJS_DEVELOPER_TOKEN}`
-  ).toString("base64")}`,
-  "x-roamjs-extension": "developer",
-};
 export const ses = new AWS.SES({ apiVersion: "2010-12-01", credentials });
-if (process.env.NODE_ENV === "development") {
-  roamjsHeaders["x-roamjs-dev"] = "true";
-}
 
-type DeveloperMetadata = { paths: string[] };
-
-export const getRoamJSUser = (event: Pick<APIGatewayProxyEvent, "headers">) =>
-  axios.get<DeveloperMetadata & { stripeAccountId: string; email: string }>(
-    `https://lambda.roamjs.com/user`,
-    {
-      headers: {
-        "x-roamjs-token":
-          event.headers.Authorization || event.headers.authorization,
-        ...roamjsHeaders,
-      },
-    }
-  );
-
-export const putRoamJSUser = (
-  event: Pick<APIGatewayProxyEvent, "headers">,
-  data: DeveloperMetadata
-) =>
-  axios.put(`https://lambda.roamjs.com/user`, data, {
-    headers: {
-      "x-roamjs-token":
-        event.headers.Authorization || event.headers.authorization,
-      ...roamjsHeaders,
-    },
-  });
+export type DeveloperMetadata = { paths: string[] };
 
 export const listAll = async (
   Prefix: string
@@ -86,42 +49,3 @@ export const listAll = async (
   }
   return { objects, prefixes };
 };
-
-export const emailError = (subject: string, e: AxiosError): Promise<string> =>
-  ses
-    .sendEmail({
-      Destination: {
-        ToAddresses: ["dvargas92495@gmail.com"],
-      },
-      Message: {
-        Body: {
-          Text: {
-            Charset: "UTF-8",
-            Data: `An error was thrown in a RoamJS lambda:
-
-${e.name}: ${
-              typeof e.response?.data === "object"
-                ? e.response.data.message || JSON.stringify(e.response.data)
-                : e.response?.data || e.message
-            }
-${e.stack}`,
-          },
-        },
-        Subject: {
-          Charset: "UTF-8",
-          Data: `RoamJS Error: ${subject}`,
-        },
-      },
-      Source: "support@roamjs.com",
-    })
-    .promise()
-    .then((r) => r.MessageId);
-
-export const emailCatch =
-  (subject: string) =>
-  (e: AxiosError): Promise<APIGatewayProxyResult> =>
-    emailError(subject, e).then((id) => ({
-      statusCode: 500,
-      body: `Unknown error - Message Id ${id}`,
-      headers,
-    }));

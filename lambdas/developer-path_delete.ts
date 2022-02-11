@@ -1,16 +1,14 @@
-import { APIGatewayProxyHandler } from "aws-lambda";
-import {
-  dynamo,
-  emailCatch,
-  getRoamJSUser,
-  headers,
-  putRoamJSUser,
-  s3,
-  userError,
-} from "./common";
+import type { APIGatewayProxyHandler } from "aws-lambda";
+import { dynamo, s3, userError } from "./common";
+import headers from "roamjs-components/backend/headers";
+import { awsGetRoamJSUser } from "roamjs-components/backend/getRoamJSUser";
+import putRoamJSUser from "roamjs-components/backend/putRoamJSUser";
+import emailCatch from "roamjs-components/backend/emailCatch";
 
-export const handler: APIGatewayProxyHandler = async (event) => {
-  const { path } = event.queryStringParameters as { path?: string };
+export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
+  path?: string;
+}>(async (user, body) => {
+  const { path } = body;
   if (!path) {
     return userError("Path is required");
   }
@@ -38,14 +36,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         .promise()
     );
 
-  return getRoamJSUser(event)
-    .then(({ data }) => {
-      const paths = (data.paths || []).filter((p) => p !== path);
-      return putRoamJSUser(event, { paths }).then(() => ({
-        statusCode: 200,
-        body: JSON.stringify({ paths }),
-        headers,
-      }));
-    })
+  const paths = ((user.paths as string[]) || []).filter((p) => p !== path);
+  return putRoamJSUser(user.token, { paths })
+    .then(() => ({
+      statusCode: 200,
+      body: JSON.stringify({ paths }),
+      headers,
+    }))
     .catch(emailCatch("Error Deleting Path"));
-};
+});

@@ -1,16 +1,14 @@
 import { APIGatewayProxyHandler } from "aws-lambda";
-import {
-  dynamo,
-  getRoamJSUser,
-  headers,
-  listAll,
-  putRoamJSUser,
-  s3,
-  userError,
-} from "./common";
+import { dynamo, listAll, s3, userError } from "./common";
+import headers from "roamjs-components/backend/headers";
+import { awsGetRoamJSUser } from "roamjs-components/backend/getRoamJSUser";
+import putRoamJSUser from "roamjs-components/backend/putRoamJSUser";
+import emailCatch from "roamjs-components/backend/emailCatch";
 
-export const handler: APIGatewayProxyHandler = async (event) => {
-  const { path } = JSON.parse(event.body || "{}") as { path?: string };
+export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
+  path?: string;
+}>(async (user, body) => {
+  const { path } = body;
   if (!path) {
     return userError("Path is required");
   }
@@ -36,11 +34,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     })
     .promise();
 
-  return getRoamJSUser(event)
-    .then((r) => {
-      const paths = [...(r.data.paths || []), path];
-      return putRoamJSUser(event, { paths }).then(() => paths);
-    })
+  const paths = [...((user.paths as string[]) || []), path];
+
+  return putRoamJSUser(user.token, { paths })
     .then((paths) =>
       dynamo
         .putItem({
@@ -65,8 +61,5 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       body: JSON.stringify({ paths }),
       headers,
     }))
-    .catch((e) => ({
-      statusCode: 500,
-      body: e.message,
-    }));
-};
+    .catch(emailCatch("Init Developer"));
+});
