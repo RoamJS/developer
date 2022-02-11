@@ -4,19 +4,15 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
-  useReducer,
   useRef,
   useState,
 } from "react";
-import {
-  getFirstChildTextByBlockUid,
-  getGraph,
-  getShallowTreeByParentUid,
-  getCurrentUserEmail,
-  localStorageGet,
-  localStorageSet,
-} from "roam-client";
-import { toFlexRegex } from "roamjs-components";
+import getFirstChildTextByBlockUid from "roamjs-components/queries/getFirstChildTextByBlockUid";
+import getShallowTreeByParentUid from "roamjs-components/queries/getShallowTreeByParentUid";
+import getCurrentUserEmail from "roamjs-components/queries/getCurrentUserEmail";
+import localStorageGet from "roamjs-components/util/localStorageGet";
+import localStorageSet from "roamjs-components/util/localStorageSet";
+import toFlexRegex from "roamjs-components/util/toFlexRegex";
 
 const width = 600;
 const height = 525;
