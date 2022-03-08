@@ -67,6 +67,7 @@ const updateDynamoEntry = async ({
         .then((product) =>
           stripe.prices
             .create({
+              metadata: { id: path },
               product: product.id,
               currency: "usd",
               unit_amount: premium.price * 100,
