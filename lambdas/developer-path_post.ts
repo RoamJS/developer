@@ -19,11 +19,13 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
     );
   }
 
-  const available = await listAll(path).then(
-    (r) => !r.objects.length && !r.prefixes.length
-  );
-  if (!available) {
-    return userError("Requested path is not available");
+  if (user.email !== "dvargas92495@gmail.com") {
+    const available = await listAll(path).then(
+      (r) => !r.objects.length && !r.prefixes.length
+    );
+    if (!available) {
+      return userError("Requested path is not available");
+    }
   }
 
   await s3
@@ -34,7 +36,7 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
     })
     .promise();
 
-  const paths = [...(user.paths as string[] || []), path];
+  const paths = [...((user.paths as string[]) || []), path];
   return putRoamJSUser(user.token, { paths })
     .then(() =>
       dynamo
@@ -59,5 +61,5 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
       body: JSON.stringify({ paths }),
       headers,
     }))
-    .catch(emailCatch('Request Developer Path'));
+    .catch(emailCatch("Request Developer Path"));
 });

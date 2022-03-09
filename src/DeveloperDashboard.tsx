@@ -248,7 +248,7 @@ const DeveloperContent: StageContent = () => {
                       })
                         .then(() => {
                           developerToaster.show({
-                            message: "Documentation has updated successfully!",
+                            message: `Documentation has updated successfully for ${p}!`,
                             intent: Intent.SUCCESS,
                           });
                         })
