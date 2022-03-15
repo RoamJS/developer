@@ -40,10 +40,9 @@ import apiPut from "roamjs-components/util/apiPut";
 import apiDelete from "roamjs-components/util/apiDelete";
 import useRoamJSTokenWarning from "roamjs-components/hooks/useRoamJSTokenWarning";
 import StripePanel from "./StripePanel";
-
-export const developerToaster = Toaster.create({
-  position: Position.TOP,
-});
+import axios, { AxiosError } from "axios";
+import getAuthorizationHeader from "roamjs-components/util/getAuthorizationHeader";
+import { render as renderToast } from "roamjs-components/components/Toast";
 
 const EMBED_REF_REGEX = new RegExp(
   `{{(?:\\[\\[)?embed(?:\\]\\])?:\\s*${BLOCK_REF_REGEX.source}\\s*}}`,
@@ -58,27 +57,41 @@ const ALIAS_BLOCK_REGEX = new RegExp(
 const DeveloperContent: StageContent = () => {
   const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [paths, setPaths] = useState<string[]>([]);
-  const setMetadataPaths = useServiceSetMetadata("paths");
+  const [paths, setPaths] = useState<
+    { id: string; state: "LIVE" | "DEVELOPMENT" | "UNDER REVIEW" }[]
+  >([]);
   const [newPath, setNewPath] = useState("");
   const [error, setError] = useState("");
-  const setAllPaths = useCallback(
-    (ps) => {
-      setPaths(ps);
-      setMetadataPaths(ps);
-    },
-    [setPaths, setMetadataPaths]
+  const catchError = useCallback(
+    (e: AxiosError) =>
+      setError(e.response?.data?.error || e.response?.data || e.message),
+    [setError]
   );
   useEffect(() => {
     if (initialLoading) {
-      Promise.all([
-        apiGet("developer-path")
-          .then((r) => setAllPaths(r.data.value || []))
-          .catch(() => setAllPaths([])),
-        apiGet("check").then(
-          (r) => !r.data.success && apiPost("developer-init")
-        ).catch(console.error),
-      ]).finally(() => setInitialLoading(false));
+      axios
+        .get(
+          `https://lambda.roamjs.com/check?extensionId=developer${
+            process.env.NODE_ENV === "development" ? "&dev=true" : ""
+          }`,
+          {
+            headers: { Authorization: getAuthorizationHeader() },
+          }
+        )
+        .then((r) => !r.data.success && apiPost("developer-init"))
+        .then(() => apiGet("developer-path"))
+        .then((r) =>
+          setPaths(
+            r.data.extensions ||
+              r.data.value.map((s: string) => ({
+                id: s,
+                state: "DEVELOPMENT",
+              })) ||
+              []
+          )
+        )
+        .catch(catchError)
+        .finally(() => setInitialLoading(false));
     }
   }, [initialLoading, setInitialLoading]);
   const prefix = useServiceField("prefix");
@@ -87,24 +100,26 @@ const DeveloperContent: StageContent = () => {
     <Spinner />
   ) : (
     <div>
-      <h4>Paths</h4>
-      <ul>
+      <h4
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <span>Paths</span> <div>{loading && <Spinner size={16} />}</div>
+      </h4>
+      <ul style={{ paddingLeft: 0 }}>
         {sortedPaths.map((p) => (
-          <li
-            key={p}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-            className={"roamjs-developer-path"}
-          >
+          <li key={p.id} className={"roamjs-developer-path"}>
             <span
               style={{
                 cursor: "pointer",
+                flexGrow: 1,
+                display: "inline-block",
               }}
               onClick={(e) => {
-                const title = `${prefix}${p}`;
+                const title = `${prefix}${p.id}`;
                 const uid = getPageUidByPageTitle(title);
                 return (
                   uid ? Promise.resolve(uid) : createPage({ title })
@@ -119,19 +134,20 @@ const DeveloperContent: StageContent = () => {
                 });
               }}
             >
-              {p}
+              {p.id}
             </span>
             <span style={{ marginRight: 16 }}>
               <Tooltip content={"Update Documentation"}>
                 <Button
                   icon={"upload"}
                   minimal
+                  disabled={loading}
                   style={{ margin: "0 8px" }}
                   onClick={() => {
                     setLoading(true);
                     setError("");
                     setTimeout(() => {
-                      const title = `${prefix}${p}`;
+                      const title = `${prefix}${p.id}`;
                       const tree = getFullTreeByParentUid(
                         getPageUidByPageTitle(title)
                       ).children;
@@ -142,7 +158,7 @@ const DeveloperContent: StageContent = () => {
                         viewType: "document",
                       };
                       const isExternal = (s: string) =>
-                        s !== p && !s.startsWith(`${p}/`);
+                        s !== p.id && !s.startsWith(`${p.id}/`);
                       const resolveRefsInNode = (t: TreeNode) => {
                         t.text = t.text
                           .replace(EMBED_REF_REGEX, (_, blockUid) => {
@@ -182,13 +198,20 @@ const DeveloperContent: StageContent = () => {
                               [(clojure.string/starts-with? ?title  "${title}/")]
                             ]`
                         )
-                        .map((r) => r[0] as { title: string; uid: string; viewType: string });
+                        .map(
+                          (r) =>
+                            r[0] as {
+                              title: string;
+                              uid: string;
+                              viewType: string;
+                            }
+                        );
                       const { children: premiumTree } = getSubTree({
                         tree,
                         key: "premium",
                       });
                       apiPut("developer-path", {
-                        path: p,
+                        path: p.id,
                         blocks: children,
                         viewType,
                         description: getSettingValueFromTree({
@@ -247,9 +270,10 @@ const DeveloperContent: StageContent = () => {
                           : undefined,
                       })
                         .then(() => {
-                          developerToaster.show({
-                            message: `Documentation has updated successfully for ${p}!`,
+                          renderToast({
+                            content: `Documentation has updated successfully for ${p.id}!`,
                             intent: Intent.SUCCESS,
+                            id: "developer-panel",
                           });
                         })
                         .catch((e) =>
@@ -264,21 +288,95 @@ const DeveloperContent: StageContent = () => {
                   }}
                 />
               </Tooltip>
+              {p.state === "DEVELOPMENT" ? (
+                <Tooltip content={"Apply for Live"}>
+                  <Button
+                    icon={"application"}
+                    minimal
+                    disabled={loading}
+                    onClick={() => {
+                      setLoading(true);
+                      setError("");
+                      apiPost("developer-application", { id: p.id })
+                        .then((r) => {
+                          if (r.data.success) {
+                            setPaths(
+                              paths.map((pt) =>
+                                pt.id === p.id
+                                  ? { id: p.id, state: "UNDER REVIEW" }
+                                  : pt
+                              )
+                            );
+                            renderToast({
+                              id: "developer-panel",
+                              content:
+                                "Successfully submitted application! Please allow up to 24 hours for the extension to undergo review.",
+                              intent: Intent.SUCCESS,
+                            });
+                          } else {
+                            renderToast({
+                              id: "developer-panel",
+                              content:
+                                "Something went wrong. Reach out to support@roamjs.com for help.",
+                              intent: Intent.DANGER,
+                            });
+                          }
+                        })
+                        .catch(catchError)
+                        .finally(() => setLoading(false));
+                    }}
+                  />
+                </Tooltip>
+              ) : p.state === "LIVE" ? (
+                <Tooltip content={"Request Removal"}>
+                  <Button
+                    icon={"remove"}
+                    disabled={loading}
+                    minimal
+                    onClick={() =>
+                      renderToast({
+                        id: "developer-panel",
+                        intent: Intent.WARNING,
+                        content:
+                          "This feature is not yet supported. Reach out to support@roamjs.com if you need to remove an extension.",
+                      })
+                    }
+                  />
+                </Tooltip>
+              ) : p.state === "UNDER REVIEW" ? (
+                <Tooltip content={"Check Status"}>
+                  <Button
+                    disabled={loading}
+                    icon={"remove"}
+                    minimal
+                    onClick={() =>
+                      renderToast({
+                        id: "developer-panel",
+                        intent: Intent.WARNING,
+                        content:
+                          "Email support@roamjs.com to check on the status of your extension application.",
+                      })
+                    }
+                  />
+                </Tooltip>
+              ) : (
+                p.state
+              )}
               <Tooltip content={"Delete Path"}>
                 <Button
                   icon={"delete"}
+                  disabled={loading}
                   minimal
                   onClick={() => {
                     setLoading(true);
                     setError("");
-                    apiDelete(
-                      `developer-path?path=${encodeURIComponent(p)}`
-                    )
-                      .then((r) => {
-                        setAllPaths(r.data.paths);
-                        developerToaster.show({
-                          message: `Path ${p} has been successfully removed.`,
+                    apiDelete(`developer-path?path=${encodeURIComponent(p.id)}`)
+                      .then(() => {
+                        setPaths(paths.filter((pt) => pt.id !== p.id));
+                        renderToast({
+                          content: `Path ${p.id} has been successfully removed.`,
                           intent: Intent.SUCCESS,
+                          id: "developer-panel",
                         });
                       })
                       .catch((e) =>
@@ -313,16 +411,22 @@ const DeveloperContent: StageContent = () => {
           onClick={() => {
             setLoading(true);
             apiPost("developer-path", { path: newPath })
-              .then((r) => {
+              .then(() => {
                 createPage({
                   title: newPath,
                   tree: [{ text: "Documentation" }],
                 });
                 setNewPath("");
-                setAllPaths(r.data.paths);
-                developerToaster.show({
-                  message: `New path ${newPath} has been successfully reserved!`,
+                setPaths(
+                  [
+                    ...paths,
+                    { id: newPath, state: "DEVELOPMENT" } as const,
+                  ].sort((a, b) => a.id.localeCompare(b.id))
+                );
+                renderToast({
+                  content: `New path ${newPath} has been successfully reserved!`,
                   intent: Intent.SUCCESS,
+                  id: "developer-panel",
                 });
               })
               .catch((e) => setError(e.response?.data || e.message))
@@ -334,7 +438,6 @@ const DeveloperContent: StageContent = () => {
           Request Path
         </Button>
       </div>
-      <div>{loading && <Spinner size={16} />}</div>
     </div>
   );
 };

@@ -49,3 +49,8 @@ export const listAll = async (
   }
   return { objects, prefixes };
 };
+
+export const TableName =
+  process.env.NODE_ENV === "development"
+    ? "RoamJSExtensionsDev"
+    : "RoamJSExtensions";

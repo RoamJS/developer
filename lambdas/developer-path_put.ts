@@ -3,7 +3,7 @@ import type { DynamoDB } from "aws-sdk";
 import axios from "axios";
 import type { TreeNode, ViewType } from "roamjs-components/types";
 import Stripe from "stripe";
-import { dynamo, listAll, s3, userError } from "./common";
+import { dynamo, listAll, s3, TableName, userError } from "./common";
 import emailCatch from "roamjs-components/backend/emailCatch";
 import headers from "roamjs-components/backend/headers";
 import { awsGetRoamJSUser } from "roamjs-components/backend/getRoamJSUser";
@@ -102,7 +102,7 @@ const updateDynamoEntry = async ({
   return updates.length
     ? dynamo
         .updateItem({
-          TableName: "RoamJSExtensions",
+          TableName,
           Key: {
             id: {
               S: path,
@@ -275,7 +275,7 @@ description: "${description}"${
     .then(() =>
       dynamo
         .getItem({
-          TableName: "RoamJSExtensions",
+          TableName,
           Key: {
             id: {
               S: path,

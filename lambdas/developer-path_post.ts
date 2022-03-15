@@ -1,5 +1,5 @@
 import { APIGatewayProxyHandler } from "aws-lambda";
-import { dynamo, listAll, s3, userError } from "./common";
+import { dynamo, listAll, s3, TableName, userError } from "./common";
 import headers from "roamjs-components/backend/headers";
 import { awsGetRoamJSUser } from "roamjs-components/backend/getRoamJSUser";
 import putRoamJSUser from "roamjs-components/backend/putRoamJSUser";
@@ -41,7 +41,7 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
     .then(() =>
       dynamo
         .putItem({
-          TableName: "RoamJSExtensions",
+          TableName,
           Item: {
             id: {
               S: path,
@@ -51,6 +51,9 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
             },
             state: {
               S: "DEVELOPMENT",
+            },
+            user: {
+              S: user.id,
             },
           },
         })

@@ -1,5 +1,5 @@
 import type { APIGatewayProxyHandler } from "aws-lambda";
-import { dynamo, s3, userError } from "./common";
+import { dynamo, s3, TableName, userError } from "./common";
 import headers from "roamjs-components/backend/headers";
 import { awsGetRoamJSUser } from "roamjs-components/backend/getRoamJSUser";
 import putRoamJSUser from "roamjs-components/backend/putRoamJSUser";
@@ -26,7 +26,7 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
     .then(() =>
       dynamo
         .deleteItem({
-          TableName: "RoamJSExtensions",
+          TableName,
           Key: {
             id: {
               S: path,
