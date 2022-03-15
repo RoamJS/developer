@@ -73,6 +73,10 @@ module "roamjs_lambda" {
     {
       path = "developer-init",
       method = "post"
+    },
+    {
+      path = "developer-application",
+      method = "post"
     }
   ]
   aws_access_token = var.aws_access_token
