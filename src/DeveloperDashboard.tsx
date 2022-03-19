@@ -58,7 +58,7 @@ const DeveloperContent: StageContent = () => {
   const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [paths, setPaths] = useState<
-    { id: string; state: "LIVE" | "DEVELOPMENT" | "UNDER REVIEW" }[]
+    { id: string; state: "LIVE" | "DEVELOPMENT" | "UNDER REVIEW" | "PRIVATE" }[]
   >([]);
   const [newPath, setNewPath] = useState("");
   const [error, setError] = useState("");
@@ -95,7 +95,10 @@ const DeveloperContent: StageContent = () => {
     }
   }, [initialLoading, setInitialLoading]);
   const prefix = useServiceField("prefix");
-  const sortedPaths = useMemo(() => paths.sort(), [paths]);
+  const sortedPaths = useMemo(
+    () => paths.sort((a, b) => a.id.localeCompare(b.id)),
+    [paths]
+  );
   return initialLoading ? (
     <Spinner />
   ) : (
@@ -347,7 +350,7 @@ const DeveloperContent: StageContent = () => {
                 <Tooltip content={"Check Status"}>
                   <Button
                     disabled={loading}
-                    icon={"remove"}
+                    icon={"stopwatch"}
                     minimal
                     onClick={() =>
                       renderToast({
@@ -359,6 +362,22 @@ const DeveloperContent: StageContent = () => {
                     }
                   />
                 </Tooltip>
+              ) : p.state === "PRIVATE" ? (
+                <Tooltip content={"Make Public"}>
+                  <Button
+                    disabled={loading}
+                    icon={"eye-open"}
+                    minimal
+                    onClick={() =>
+                      renderToast({
+                        id: "developer-panel",
+                        intent: Intent.WARNING,
+                        content:
+                          "Email support@roamjs.com to make your private extension public",
+                      })
+                    }
+                  />
+                </Tooltip>
               ) : (
                 p.state
               )}
@@ -366,6 +385,7 @@ const DeveloperContent: StageContent = () => {
                 <Button
                   icon={"delete"}
                   disabled={loading}
+                  style={{ marginLeft: 8 }}
                   minimal
                   onClick={() => {
                     setLoading(true);
@@ -417,12 +437,10 @@ const DeveloperContent: StageContent = () => {
                   tree: [{ text: "Documentation" }],
                 });
                 setNewPath("");
-                setPaths(
-                  [
-                    ...paths,
-                    { id: newPath, state: "DEVELOPMENT" } as const,
-                  ].sort((a, b) => a.id.localeCompare(b.id))
-                );
+                setPaths([
+                  ...paths,
+                  { id: newPath, state: "DEVELOPMENT" } as const,
+                ]);
                 renderToast({
                   content: `New path ${newPath} has been successfully reserved!`,
                   intent: Intent.SUCCESS,

@@ -173,7 +173,7 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
       headers,
     };
   }
-  if (premium && !(stripeAccountId || email === "dvargas92495@gmail.com")) {
+  if (premium && !(stripeAccountId || email === "support@roamjs.com")) {
     return {
       statusCode: 403,
       body: "Need to connect a stripe account id before publishing premium features for an extension",

@@ -19,7 +19,7 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
     );
   }
 
-  if (user.email !== "dvargas92495@gmail.com") {
+  if (user.email !== "support@roamjs.com") {
     const available = await listAll(path).then(
       (r) => !r.objects.length && !r.prefixes.length
     );
