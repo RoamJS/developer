@@ -1,8 +1,7 @@
-import type { APIGatewayProxyHandler } from "aws-lambda";
+import type { APIGatewayProxyHandler, APIGatewayProxyResult } from "aws-lambda";
 import { dynamo, s3, TableName, userError } from "./common";
 import headers from "roamjs-components/backend/headers";
 import { awsGetRoamJSUser } from "roamjs-components/backend/getRoamJSUser";
-import putRoamJSUser from "roamjs-components/backend/putRoamJSUser";
 import emailCatch from "roamjs-components/backend/emailCatch";
 
 export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
@@ -12,36 +11,34 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
   if (!path) {
     return userError("Path is required");
   }
-  const Objects = await s3
-    .listObjectsV2({ Bucket: "roamjs.com", Prefix: path })
-    .promise()
-    .then((r) => r.Contents.map((c) => ({ Key: c.Key })));
-  if (Objects.length === 0) {
-    return userError("Requested path is not being used");
-  }
 
-  await s3
-    .deleteObjects({ Bucket: "roamjs.com", Delete: { Objects } })
+  return dynamo
+    .getItem({ TableName, Key: { id: { S: path } } })
     .promise()
-    .then(() =>
-      dynamo
-        .deleteItem({
-          TableName,
-          Key: {
-            id: {
-              S: path,
-            },
-          },
-        })
+    .then((r) => {
+      if (!r.Item) return userError("Requested path is not being used");
+      if (r.Item.user?.S !== user.id)
+        return userError("User is not authorized to delete this path");
+      return dynamo
+        .deleteItem({ TableName, Key: { id: { S: path } } })
         .promise()
-    );
-
-  const paths = ((user.paths as string[]) || []).filter((p) => p !== path);
-  return putRoamJSUser(user.token, { paths })
-    .then(() => ({
-      statusCode: 200,
-      body: JSON.stringify({ paths }),
-      headers,
-    }))
+        .then(() =>
+          s3.listObjectsV2({ Bucket: "roamjs.com", Prefix: path }).promise()
+        )
+        .then((r) => r.Contents.map((c) => ({ Key: c.Key })))
+        .then((Objects) =>
+          s3
+            .deleteObjects({ Bucket: "roamjs.com", Delete: { Objects } })
+            .promise()
+        )
+        .then(
+          () =>
+            ({
+              statusCode: 200,
+              body: JSON.stringify({ success: true }),
+              headers,
+            } as APIGatewayProxyResult)
+        );
+    })
     .catch(emailCatch("Error Deleting Path"));
 });
