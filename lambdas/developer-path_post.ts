@@ -2,7 +2,6 @@ import { APIGatewayProxyHandler } from "aws-lambda";
 import { dynamo, listAll, s3, TableName, userError } from "./common";
 import headers from "roamjs-components/backend/headers";
 import { awsGetRoamJSUser } from "roamjs-components/backend/getRoamJSUser";
-import putRoamJSUser from "roamjs-components/backend/putRoamJSUser";
 import emailCatch from "roamjs-components/backend/emailCatch";
 
 export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
@@ -36,29 +35,35 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
     })
     .promise();
 
-  const paths = [...((user.paths as string[]) || []), path];
-  return putRoamJSUser(user.token, { paths })
-    .then(() =>
-      dynamo
-        .putItem({
-          TableName,
-          Item: {
-            id: {
-              S: path,
-            },
-            description: {
-              S: "",
-            },
-            state: {
-              S: "DEVELOPMENT",
-            },
-            user: {
-              S: user.id,
-            },
-          },
-        })
-        .promise()
-    )
+  const paths = await dynamo
+    .query({
+      TableName,
+      IndexName: "user-index",
+      KeyConditionExpression: "#u = :u",
+      ExpressionAttributeNames: { "#u": "user" },
+      ExpressionAttributeValues: { ":u": { S: user.id } },
+    })
+    .promise()
+    .then((r) => r.Items.map((i) => i.id.S).concat(path));
+  return dynamo
+    .putItem({
+      TableName,
+      Item: {
+        id: {
+          S: path,
+        },
+        description: {
+          S: "",
+        },
+        state: {
+          S: "DEVELOPMENT",
+        },
+        user: {
+          S: user.id,
+        },
+      },
+    })
+    .promise()
     .then(() => ({
       statusCode: 200,
       body: JSON.stringify({ paths }),

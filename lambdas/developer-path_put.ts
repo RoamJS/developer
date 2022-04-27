@@ -163,7 +163,16 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
       "Description is too long. Please keep it 128 characters or fewer."
     );
   }
-  const paths = user.paths as string[];
+  const paths = await dynamo
+    .query({
+      TableName,
+      IndexName: "user-index",
+      KeyConditionExpression: "#u = :u",
+      ExpressionAttributeNames: { "#u": "user" },
+      ExpressionAttributeValues: { ":u": { S: user.id } },
+    })
+    .promise()
+    .then((r) => r.Items.map((i) => i.id.S));
   const stripeAccountId = user.stripeAccountId as string;
   const { email } = user;
   if (!paths.includes(path)) {
