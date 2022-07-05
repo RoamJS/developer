@@ -2,6 +2,10 @@ import Dashboard from "./DeveloperDashboard";
 import addStyle from "roamjs-components/dom/addStyle";
 import runExtension from "roamjs-components/util/runExtension";
 import { runService } from "roamjs-components/components/ServiceComponents";
+import {
+  addTokenDialogCommand,
+  checkRoamJSTokenWarning,
+} from "roamjs-components/components/TokenDialog";
 
 addStyle(`.roamjs-developer-path {
   display: flex;
@@ -21,4 +25,6 @@ runExtension(ID, () => {
     id: ID,
     Dashboard,
   });
+  addTokenDialogCommand();
+  checkRoamJSTokenWarning();
 });
