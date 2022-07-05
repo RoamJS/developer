@@ -10,7 +10,9 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser(async (user) =>
       IndexName: "user-index",
       KeyConditionExpression: "#u = :u",
       ExpressionAttributeNames: { "#u": "user" },
-      ExpressionAttributeValues: { ":u": { S: user.id } },
+      ExpressionAttributeValues: {
+        ":u": { S: user.id || process.env.ROAMJS_RELEASE_TOKEN },
+      },
     })
     .promise()
     .then((r) => {
