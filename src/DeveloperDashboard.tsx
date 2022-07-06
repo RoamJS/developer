@@ -19,17 +19,6 @@ import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParen
 import openBlockInSidebar from "roamjs-components/writes/openBlockInSidebar";
 import { TreeNode } from "roamjs-components/types";
 import setInputSetting from "roamjs-components/util/setInputSetting";
-import {
-  ServiceDashboard,
-  StageContent,
-  NextButton as ServiceNextButton,
-  useNextStage as useServiceNextStage,
-  usePageUid as useServicePageUid,
-  useField as useServiceField,
-  useSetMetadata as useServiceSetMetadata,
-  useGetMetadata as useServiceGetMetadata,
-  MainStage as WrapServiceMainStage,
-} from "roamjs-components/components/ServiceComponents";
 import getSettingValueFromTree from "roamjs-components/util/getSettingValueFromTree";
 import getSettingValuesFromTree from "roamjs-components/util/getSettingValuesFromTree";
 import getSettingIntFromTree from "roamjs-components/util/getSettingIntFromTree";
@@ -39,9 +28,7 @@ import apiPost from "roamjs-components/util/apiPost";
 import apiPut from "roamjs-components/util/apiPut";
 import apiDelete from "roamjs-components/util/apiDelete";
 import useRoamJSTokenWarning from "roamjs-components/hooks/useRoamJSTokenWarning";
-import StripePanel from "./StripePanel";
-import axios, { AxiosError } from "axios";
-import getAuthorizationHeader from "roamjs-components/util/getAuthorizationHeader";
+import useSubTree from "roamjs-components/hooks/useSubTree";
 import { render as renderToast } from "roamjs-components/components/Toast";
 
 const EMBED_REF_REGEX = new RegExp(
@@ -54,47 +41,34 @@ const ALIAS_BLOCK_REGEX = new RegExp(
   "g"
 );
 
-const DeveloperContent: StageContent = () => {
+type Extension = {
+  id: string;
+  state: "LIVE" | "DEVELOPMENT" | "UNDER REVIEW" | "PRIVATE";
+};
+
+const DeveloperDashboard = ({ parentUid }: { parentUid: string }) => {
+  useRoamJSTokenWarning();
   const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [paths, setPaths] = useState<
-    { id: string; state: "LIVE" | "DEVELOPMENT" | "UNDER REVIEW" | "PRIVATE" }[]
-  >([]);
+  const [paths, setPaths] = useState<Extension[]>([]);
   const [newPath, setNewPath] = useState("");
   const [error, setError] = useState("");
-  const catchError = useCallback(
-    (e: AxiosError) =>
-      setError(e.response?.data?.error || e.response?.data || e.message),
-    [setError]
-  );
+  const catchError = useCallback((e: Error) => setError(e.message), [setError]);
   useEffect(() => {
     if (initialLoading) {
-      axios
-        .get(
-          `https://lambda.roamjs.com/check?extensionId=developer${
-            process.env.NODE_ENV === "development" ? "&dev=true" : ""
-          }`,
-          {
-            headers: { Authorization: getAuthorizationHeader() },
-          }
-        )
-        .then((r) => !r.data.success && apiPost("developer-init"))
+      apiGet<{ success: boolean; extensions: Extension[] }>({
+        path: `check`,
+        data: { extensionId: "developer" },
+        domain: "https://lambda.roamjs.com",
+      })
+        .then((r) => !r.success && apiPost("developer-init"))
         .then(() => apiGet("developer-path"))
-        .then((r) =>
-          setPaths(
-            r.data.extensions ||
-              r.data.value.map((s: string) => ({
-                id: s,
-                state: "DEVELOPMENT",
-              })) ||
-              []
-          )
-        )
+        .then((r) => setPaths(r.extensions || []))
         .catch(catchError)
         .finally(() => setInitialLoading(false));
     }
   }, [initialLoading, setInitialLoading]);
-  const prefix = useServiceField("prefix");
+  const prefix = useSubTree({ key: "prefix", parentUid });
   const sortedPaths = useMemo(
     () => paths.sort((a, b) => a.id.localeCompare(b.id)),
     [paths]
@@ -300,9 +274,14 @@ const DeveloperContent: StageContent = () => {
                     onClick={() => {
                       setLoading(true);
                       setError("");
-                      apiPost("developer-application", { id: p.id })
+                      apiPost<{ success: boolean }>({
+                        path: "developer-application",
+                        data: {
+                          id: p.id,
+                        },
+                      })
                         .then((r) => {
-                          if (r.data.success) {
+                          if (r.success) {
                             setPaths(
                               paths.map((pt) =>
                                 pt.id === p.id
@@ -390,7 +369,10 @@ const DeveloperContent: StageContent = () => {
                   onClick={() => {
                     setLoading(true);
                     setError("");
-                    apiDelete(`developer-path?path=${encodeURIComponent(p.id)}`)
+                    apiDelete({
+                      path: `developer-path`,
+                      data: { path: p.id },
+                    })
                       .then(() => {
                         setPaths(paths.filter((pt) => pt.id !== p.id));
                         renderToast({
@@ -457,95 +439,6 @@ const DeveloperContent: StageContent = () => {
         </Button>
       </div>
     </div>
-  );
-};
-
-const RequestPrefixContent: StageContent = ({ openPanel }) => {
-  const nextStage = useServiceNextStage(openPanel);
-  const pageUid = useServicePageUid();
-  const paths = useServiceGetMetadata("paths") as string[];
-  const oldPrefix = useServiceField("prefix");
-  const [value, setValue] = useState(oldPrefix);
-  const onChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => setValue(e.target.value),
-    [setValue]
-  );
-  const onSubmit = useCallback(() => {
-    setInputSetting({ blockUid: pageUid, key: "prefix", value, index: 1 });
-    paths
-      .flatMap((s) => [
-        s,
-        ...getPageTitlesStartingWithPrefix(`${oldPrefix}${s}/`).map((sp) =>
-          sp.substring(oldPrefix.length)
-        ),
-      ])
-      .forEach((s) =>
-        window.roamAlphaAPI.updatePage({
-          page: {
-            uid: getPageUidByPageTitle(`${oldPrefix}${s}`),
-            title: `${value}${s}`,
-          },
-        })
-      );
-    nextStage();
-  }, [value, nextStage, pageUid]);
-  const disabled = value === oldPrefix;
-  const onKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (
-        e.key === "Enter" &&
-        !e.shiftKey &&
-        !e.altKey &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !disabled
-      ) {
-        onSubmit();
-      }
-    },
-    [onSubmit]
-  );
-  return (
-    <>
-      <Label>
-        {"Documentation Prefix"}
-        <InputGroup value={value} onChange={onChange} onKeyDown={onKeyDown} />
-      </Label>
-      <ServiceNextButton onClick={onSubmit} disabled={disabled} />
-    </>
-  );
-};
-
-const RequestStripePanel: StageContent = ({ openPanel }) => {
-  const nextStage = useServiceNextStage(openPanel);
-  const pageUid = useServicePageUid();
-  return (
-    <>
-      <div style={{ marginBottom: 32 }}>
-        <StripePanel parentUid={pageUid} />
-      </div>
-      <ServiceNextButton onClick={nextStage} />
-    </>
-  );
-};
-
-const DeveloperDashboard = (): React.ReactElement => {
-  useRoamJSTokenWarning();
-  return (
-    <ServiceDashboard
-      service={"developer"}
-      stages={[
-        WrapServiceMainStage(DeveloperContent),
-        {
-          component: RequestPrefixContent,
-          setting: "Prefix",
-        },
-        {
-          component: RequestStripePanel,
-          setting: "Payout",
-        },
-      ]}
-    />
   );
 };
 
