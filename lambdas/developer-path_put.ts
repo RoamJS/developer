@@ -20,23 +20,13 @@ const viewTypeToPrefix = {
   numbered: "1. ",
 };
 
-type Premium = {
-  description: string[];
-  name: string;
-  price: number;
-  usage?: "licensed" | "metered";
-  quantity?: number;
-};
-
 const updateDynamoEntry = async ({
   path,
-  premium,
   description,
   entry,
   Item,
 }: {
   path: string;
-  premium: Premium;
   description: string;
   entry: string;
   Item: DynamoDB.AttributeMap;
@@ -48,56 +38,6 @@ const updateDynamoEntry = async ({
   const src = entry || `https://roamjs.com/${path}/main.js`;
   if (src !== Item.src?.S) {
     updates.push({ key: "src", value: src });
-  }
-  if (!!premium !== !!Item.premium?.S) {
-    if (premium) {
-      await stripe.products
-        .create({
-          name:
-            premium.name ||
-            `RoamJS ${path
-              .split("-")
-              .map(
-                (p) =>
-                  `${p.slice(0, 1).toUpperCase()}${p.slice(1).toLowerCase()}`
-              )
-              .join(" ")}`,
-          description: premium.description.join("\n\n"),
-        })
-        .then((product) =>
-          stripe.prices
-            .create({
-              metadata: { id: path },
-              product: product.id,
-              currency: "usd",
-              unit_amount: premium.price * 100,
-              recurring: {
-                interval: "month",
-                interval_count: 1,
-                usage_type: premium.usage || "licensed",
-              },
-              ...(premium.quantity
-                ? {
-                    transform_quantity: {
-                      divide_by: premium.quantity,
-                      round: "up",
-                    },
-                  }
-                : null),
-            })
-            .then((price) => price.id)
-        )
-        .then((price) => {
-          updates.push({ key: "premium", value: price });
-        })
-        .catch(emailCatch(`Failed to create product for ${path}.`));
-    } else {
-      await stripe.prices
-        .retrieve(Item.premium?.S)
-        .then((price) => stripe.products.del(price.product as string))
-        .then(() => updates.push({ key: "premium", value: "" }))
-        .catch(emailCatch(`Failed to delete product for ${path}.`));
-    }
   }
   return updates.length
     ? dynamo
@@ -135,7 +75,7 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
   subpages: { [name: string]: { nodes: TreeNode[]; viewType: ViewType } };
   thumbnail?: string;
   entry?: string;
-  premium?: Premium;
+  implementation?: string;
 }>(async (user, body) => {
   const {
     path,
@@ -146,7 +86,7 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
     subpages,
     thumbnail,
     entry,
-    premium,
+    implementation,
   } = body;
   if (blocks.length === 0) {
     return userError(
@@ -172,20 +112,16 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
       ExpressionAttributeValues: { ":u": { S: user.id } },
     })
     .promise()
-    .then((r) => r.Items.map((i) => i.id.S));
-  const stripeAccountId = user.stripeAccountId as string;
-  const { email } = user;
+    .then((r) => r.Items.map((i) => i.id.S))
+    .catch((e) =>
+      Promise.reject(
+        `Failed to get the user's current extensions: ${e.message}`
+      )
+    );
   if (!paths.includes(path)) {
     return {
       statusCode: 403,
       body: `User does not have access to path ${path}`,
-      headers,
-    };
-  }
-  if (premium && !(stripeAccountId || email === "support@roamjs.com")) {
-    return {
-      statusCode: 403,
-      body: "Need to connect a stripe account id before publishing premium features for an extension",
       headers,
     };
   }
@@ -299,7 +235,6 @@ description: "${description}"${
           Item,
           description,
           path,
-          premium,
           entry,
         }),
         listAll(`markdown/${path}/`)
@@ -374,7 +309,10 @@ description: "${description}"${
                     headers: {
                       Accept: "application/vnd.github.inertia-preview+json",
                       Authorization: `Basic ${Buffer.from(
-                        `dvargas92495:${process.env.ROAMJS_RELEASE_TOKEN}`
+                        `dvargas92495:${
+                          process.env.ROAMJS_RELEASE_TOKEN ||
+                          process.env.GITHUB_TOKEN
+                        }`
                       ).toString("base64")}`,
                     },
                   }
@@ -382,10 +320,50 @@ description: "${description}"${
                 .then(() => ({
                   etag: r[0].ETag,
                 }))
+                .catch((e) =>
+                  Promise.reject(`Failed to redeploy RoamJS: ${e.message}`)
+                )
             )
           ),
       ])
     )
+    .then(() => {
+      if (implementation && !entry) {
+        const fileName = "main.js";
+        const Key = `${path}/${fileName}`;
+        const uploadProps = {
+          Bucket: "roamjs.com",
+          ContentType: "text/javascript",
+        };
+        return Promise.all([
+          s3
+            .putObject({
+              Key: `${path}/${version}/${fileName}`,
+              ...uploadProps,
+              Body: implementation,
+            })
+            .promise()
+            .catch((e: Error) =>
+              Promise.reject(
+                `Failed to publish versioned extension: ${e.message}`
+              )
+            ),
+          s3
+            .putObject({
+              Key,
+              ...uploadProps,
+              Body: implementation,
+            })
+            .promise()
+            .catch((e: Error) =>
+              Promise.reject(
+                `Failed to publish versioned extension: ${e.message}`
+              )
+            ),
+          ,
+        ]);
+      }
+    })
     .then(() => ({
       statusCode: 200,
       body: JSON.stringify({ success: true }),

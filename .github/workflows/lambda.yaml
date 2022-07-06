@@ -12,7 +12,6 @@ env:
   ROAMJS_DEVELOPER_TOKEN: ${{ secrets.ROAMJS_DEVELOPER_TOKEN }}
   ROAMJS_RELEASE_TOKEN: ${{ secrets.ROAMJS_RELEASE_TOKEN }}
   STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-  ROAMJS_EXTENSION_ID: developer
   ROAMJS_EMAIL: support@roamjs.com
 
 jobs:

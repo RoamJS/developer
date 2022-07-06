@@ -71,10 +71,6 @@ module "roamjs_lambda" {
       method = "delete"
     },
     {
-      path = "developer-init",
-      method = "post"
-    },
-    {
       path = "developer-application",
       method = "post"
     }
