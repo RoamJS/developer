@@ -68,7 +68,8 @@ const DeveloperDashboard = ({ parentUid }: { parentUid: string }) => {
         .finally(() => setInitialLoading(false));
     }
   }, [initialLoading, setInitialLoading]);
-  const prefix = useSubTree({ key: "prefix", parentUid }).text;
+  const prefix =
+    useSubTree({ key: "prefix", parentUid }).children[0]?.text || "";
   const sortedPaths = useMemo(
     () => paths.sort((a, b) => a.id.localeCompare(b.id)),
     [paths]
