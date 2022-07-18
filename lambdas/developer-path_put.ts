@@ -304,7 +304,7 @@ description: "${description}"${
               axios
                 .post(
                   `https://api.github.com/repos/dvargas92495/roam-js-extensions/actions/workflows/isr.yaml/dispatches`,
-                  { ref: "master", inputs: { extension: path } },
+                  { ref: "main", inputs: { extension: path } },
                   {
                     headers: {
                       Accept: "application/vnd.github.inertia-preview+json",
