@@ -115,7 +115,7 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
     .then((r) => r.Items.map((i) => i.id.S))
     .catch((e) =>
       Promise.reject(
-        `Failed to get the user's current extensions: ${e.message}`
+        new Error(`Failed to get the user's current extensions: ${e.message}`)
       )
     );
   if (!paths.includes(path)) {
@@ -321,7 +321,9 @@ description: "${description}"${
                   etag: r[0].ETag,
                 }))
                 .catch((e) =>
-                  Promise.reject(`Failed to redeploy RoamJS: ${e.message}`)
+                  Promise.reject(
+                    new Error(`Failed to redeploy RoamJS: ${e.message}`)
+                  )
                 )
             )
           ),
@@ -345,7 +347,7 @@ description: "${description}"${
             .promise()
             .catch((e: Error) =>
               Promise.reject(
-                `Failed to publish versioned extension: ${e.message}`
+                new Error(`Failed to publish versioned extension: ${e.message}`)
               )
             ),
           s3
@@ -357,7 +359,7 @@ description: "${description}"${
             .promise()
             .catch((e: Error) =>
               Promise.reject(
-                `Failed to publish versioned extension: ${e.message}`
+                new Error(`Failed to publish versioned extension: ${e.message}`)
               )
             ),
           ,
