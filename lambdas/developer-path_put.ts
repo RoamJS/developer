@@ -126,14 +126,6 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
     };
   }
 
-  const frontmatter = `---
-description: "${description}"${
-    contributors?.length ? `\ncontributors: "${contributors.join(", ")}"` : ""
-  }${entry ? `\nentry: "${entry}"` : ""}
----
-
-`;
-
   const today = new Date();
   const version = `${today.getFullYear()}-${toDoubleDigit(
     today.getMonth() + 1
@@ -262,9 +254,12 @@ description: "${description}"${
                 .upload({
                   Bucket,
                   Key: `markdown/${path}.md`,
-                  Body: `${frontmatter}${blocks
-                    .map((b) => blockToMarkdown(b, viewType))
-                    .join("")}`,
+                  Body:
+                    blocks.length === 1 && blocks[0].text.includes("github.com")
+                      ? blocks[0].text
+                      : blocks
+                          .map((b) => blockToMarkdown(b, viewType))
+                          .join(""),
                   ContentType: "text/markdown",
                 })
                 .promise(),
