@@ -140,8 +140,8 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
         (_, id) => `<Loom id={"${id}"} />`
       )
       .replace(
-        /{{(?:\[\[)?(?:youtube|video)(?:\]\])?:(?:\s)*https:\/\/youtu\.be\/([\w\d-]*)}}/g,
-        (_, id) => `<YouTube id={"${id}"} />`
+        /{{(?:\[\[)?(?:youtube|video)(?:\]\])?:(?:\s)*https:\/\/(?:youtu\.be\/([\w\d-]*)|(?:www\.)youtube.com\/watch\?v=([\w\d-]+)[^}]+)}}/g,
+        (_, id, otherId) => `<YouTube id={"${id || otherId}"} />`
       )
       .replace(
         /{{(?:\[\[)?video(?:\]\])?:(?:\s)*([^\s]+)(?:\s)*}}/g,
