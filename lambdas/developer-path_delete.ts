@@ -22,15 +22,6 @@ export const handler: APIGatewayProxyHandler = awsGetRoamJSUser<{
       return dynamo
         .deleteItem({ TableName, Key: { id: { S: path } } })
         .promise()
-        .then(() =>
-          s3.listObjectsV2({ Bucket: "roamjs.com", Prefix: path }).promise()
-        )
-        .then((r) => r.Contents.map((c) => ({ Key: c.Key })))
-        .then((Objects) =>
-          s3
-            .deleteObjects({ Bucket: "roamjs.com", Delete: { Objects } })
-            .promise()
-        )
         .then(
           () =>
             ({
