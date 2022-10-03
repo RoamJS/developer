@@ -1,27 +1,18 @@
 {
   "name": "developer",
   "version": "1.0.1",
-  "description": "Description for developer.",
+  "description": "Develop and publish your own Roam extensions with the help of RoamJS!",
   "main": "./build/main.js",
   "scripts": {
-    "build": "roamjs-scripts build",
-    "dev": "roamjs-scripts dev",
-    "lambdas": "roamjs-scripts lambdas",
-    "preserver": "roamjs-scripts lambdas --build --unset API_URL",
-    "server": "localhost-lambdas",
-    "start": "concurrently npm:dev npm:server"
+    "prebuild:roam": "npm install",
+    "build:roam": "roamjs-scripts build --depot",
+    "start": "npx roamjs-scripts dev --depot"
   },
   "license": "MIT",
   "devDependencies": {
-    "@types/aws-lambda": "^8.10.85",
-    "concurrently": "^7.0.0",
-    "localhost-lambdas": "^0.5.3",
-    "roamjs-scripts": "^0.19.11",
-    "typescript": "^4.4.4"
+    "roamjs-scripts": "^0.23.9"
   },
   "dependencies": {
-    "aws-sdk-plus": "^0.5.3",
-    "roamjs-components": "^0.67.0",
-    "stripe": "^8.187.0"
+    "roamjs-components": "^0.74.7"
   }
 }
