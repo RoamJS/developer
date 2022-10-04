@@ -23,5 +23,11 @@ RoamJS manages two NPM packages, both of which have been vetted by the Roam team
 
 These packages are what all RoamJS extensions are built on top of. As a developer, you are not required to use either of these extensions, but they exist to make your life easier getting started.
 
+## Connecting to GitHub
+
+In your Roam Depot settings for the developer extension, you could add your GitHub username and API token. You can retrieve an API token from the from your developer settings on GitHub. Once connected, you'll have access to features specific to accessing your GitHub account from within Roam!
+
+To import GitHub issues you have open, open the Roam Command Palette and enter `Import My GitHub Issues`.
+
 ## Resources
 Most existing developer documentation lives at [developer.roamjs.com](https://developer.roamjs.com). Stay tuned while we migrate that information to RoamJS.
