@@ -16,6 +16,8 @@ To easily invoke this logic without having to reload Roam each time, create a bu
 
 ![](https://firebasestorage.googleapis.com/v0/b/firescript-577a2.appspot.com/o/imgs%2Fapp%2Froamjs%2FPjrj8kZex0.01.09%20PM.png?alt=media&token=a00101b0-0d22-48bc-bc6f-6dc1b2b3bb2f)
 
+You can also create a live REPL by entering a `{{repl}}` button inside of a block.
+
 ## Developing outside of Roam
 RoamJS manages two NPM packages, both of which have been vetted by the Roam team themselves:
 - [RoamJS Components](https://roamjs.com/extensions/developer/roamjs_components) - This package contains all of the UI components and utilities RoamJS uses to build extensions

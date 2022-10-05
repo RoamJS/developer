@@ -10,6 +10,9 @@ import getOrderByBlockUid from "roamjs-components/queries/getOrderByBlockUid";
 import getChildrenLengthByParentUid from "roamjs-components/queries/getChildrenLengthByParentUid";
 import apiGet from "roamjs-components/util/apiGet";
 import { render as renderToast } from "roamjs-components/components/Toast";
+import createButtonObserver from "roamjs-components/dom/createButtonObserver";
+import { createComponentRender } from "roamjs-components/components/ComponentContainer";
+import Repl from "./Repl";
 
 const AsyncFunction: FunctionConstructor = new Function(
   `return Object.getPrototypeOf(async function(){}).constructor`
@@ -134,6 +137,14 @@ export default runExtension({
               intent: "danger",
             })
           );
+      },
+    });
+
+    createButtonObserver({
+      shortcut: "repl",
+      attribute: "repl-editor",
+      render: (b: HTMLButtonElement) => {
+        createComponentRender(Repl)(b, args);
       },
     });
 
