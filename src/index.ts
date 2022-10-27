@@ -13,6 +13,7 @@ import { render as renderToast } from "roamjs-components/components/Toast";
 import createButtonObserver from "roamjs-components/dom/createButtonObserver";
 import { createComponentRender } from "roamjs-components/components/ComponentContainer";
 import Repl from "./Repl";
+import initializePostman from "./postman";
 
 const AsyncFunction: FunctionConstructor = new Function(
   `return Object.getPrototypeOf(async function(){}).constructor`
@@ -147,6 +148,8 @@ export default runExtension({
         createComponentRender(Repl)(b, args);
       },
     });
+
+    initializePostman();
 
     return {
       commands: ["Import My GitHub Issues"],
