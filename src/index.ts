@@ -14,6 +14,7 @@ import createButtonObserver from "roamjs-components/dom/createButtonObserver";
 import { createComponentRender } from "roamjs-components/components/ComponentContainer";
 import Repl from "./Repl";
 import initializePostman from "./postman";
+import initializeSparql from "./sparql";
 
 const AsyncFunction: FunctionConstructor = new Function(
   `return Object.getPrototypeOf(async function(){}).constructor`
@@ -150,6 +151,7 @@ export default runExtension({
     });
 
     initializePostman();
+    initializeSparql();
 
     return {
       commands: ["Import My GitHub Issues"],
