@@ -49,6 +49,7 @@ import apiGet from "roamjs-components/util/apiGet";
 import extractTag from "roamjs-components/util/extractTag";
 import renderOverlay from "roamjs-components/util/renderOverlay";
 import addStyle from "roamjs-components/dom/addStyle";
+import getFirstChildUidByBlockUid from "roamjs-components/queries/getFirstChildUidByBlockUid";
 
 // https://github.com/spamscanner/url-regex-safe/blob/master/src/index.js
 const protocol = `(?:https?://)`;
@@ -72,7 +73,7 @@ export type RenderProps = {
     };
   };
   parentUid: string;
-  location: { "window-id": string; "block-uid": string };
+  blockUid: string;
 };
 
 export const DEFAULT_EXPORT_LABEL = "SPARQL Import";
@@ -275,7 +276,7 @@ const SparqlQuery = ({
   onClose,
   queriesCache,
   parentUid,
-  location,
+  blockUid: _blockUid,
 }: {
   onClose: () => void;
 } & RenderProps): React.ReactElement => {
@@ -286,8 +287,8 @@ const SparqlQuery = ({
     [parentUid]
   );
   const cursorBlockUid = useMemo(
-    () => (getTextByBlockUid(parentUid) ? parentUid : location["block-uid"]),
-    [parentUid]
+    () => (getTextByBlockUid(parentUid) ? parentUid : _blockUid),
+    [parentUid, _blockUid]
   );
   const cursorBlockString = useMemo(
     () => extractTag(getTextByBlockUid(cursorBlockUid)),
@@ -738,7 +739,9 @@ const initializeSparql = () => {
         .getOpenPageOrBlockUid()
         .then((parentUid) =>
           render({
-            location: window.roamAlphaAPI.ui.getFocusedBlock(),
+            blockUid:
+              window.roamAlphaAPI.ui.getFocusedBlock()?.["block-uid"] ||
+              getFirstChildUidByBlockUid(parentUid),
             queriesCache,
             parentUid,
           })
