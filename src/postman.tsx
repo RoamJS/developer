@@ -12,6 +12,25 @@ import { TextNode, TreeNode, ViewType } from "roamjs-components/types/native";
 import { getParseInline } from "roamjs-components/marked";
 import { syncParseRoamBlocksToHtml } from "roamjs-components/dom/parseRoamBlocksToHtml";
 import createTagRegex from "roamjs-components/util/createTagRegex";
+import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
+import getPageTitleByBlockUid from "roamjs-components/queries/getPageTitleByBlockUid";
+
+const getRoamUrl = (blockUid?: string): string =>
+  `${window.location.href.replace(/\/page\/.*$/, "")}${
+    blockUid ? `/page/${blockUid}` : ""
+  }`;
+
+const context = {
+  pagesToHrefs: (page: string, ref?: string) =>
+    ref ? getRoamUrl(ref) : getRoamUrl(getPageUidByPageTitle(page)),
+  blockReferences: (ref: string) => ({
+    text: getTextByBlockUid(ref),
+    page: getPageTitleByBlockUid(ref),
+  }),
+  components: (): false => {
+    return false;
+  },
+};
 
 export const getParseRoamBlocks = (): Promise<
   (a: { content: TreeNode[]; viewType: ViewType }) => string
