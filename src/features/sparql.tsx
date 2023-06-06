@@ -28,7 +28,6 @@ import React, {
   useRef,
   useState,
 } from "react";
-import ReactDOM from "react-dom";
 import getSettingIntFromTree from "roamjs-components/util/getSettingIntFromTree";
 import MenuItemSelect from "roamjs-components/components/MenuItemSelect";
 import getSettingValueFromTree from "roamjs-components/util/getSettingValueFromTree";
@@ -63,7 +62,7 @@ const URL_REGEX = new RegExp(regex, "ig");
 
 type PageResult = { description: string; id: string; label: string };
 const OUTPUT_FORMATS = ["Parent", "Line", "Table"] as const;
-export type OutputFormat = typeof OUTPUT_FORMATS[number];
+export type OutputFormat = (typeof OUTPUT_FORMATS)[number];
 export type RenderProps = {
   queriesCache: {
     [uid: string]: {
@@ -113,19 +112,20 @@ const IMAGE_REGEX_URL =
 const WIKIDATA_SOURCE =
   "https://query.wikidata.org/bigdata/namespace/wdq/sparql?format=json&query=";
 
-const combineTextNodes = (nodes: InputTextNode[]) =>
+const combineTextNodes = (nodes: InputTextNode[] = []) =>
   nodes
     .sort(({ text: a }, { text: b }) => a.localeCompare(b))
     .map((node, i, arr) => {
       const firstIndex = arr.findIndex((n) => n.text === node.text);
       if (i > firstIndex) {
-        arr[firstIndex].children.push(...node.children);
+        const { children } = arr[firstIndex];
+        if (children) children.push(...(node.children || []));
         node.text = "";
         node.children = [];
       }
       return node;
     })
-    .filter((node) => !!node.text || !!node.children.length)
+    .filter((node) => !!node.text || !!node.children?.length)
     .map((node) => {
       node.children = combineTextNodes(node.children);
       return node;
@@ -307,7 +307,7 @@ const SparqlQuery = ({
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [activeItem, setActiveItem] = useState<typeof WIKIDATA_ITEMS[number]>(
+  const [activeItem, setActiveItem] = useState<(typeof WIKIDATA_ITEMS)[number]>(
     WIKIDATA_ITEMS[0]
   );
   const [radioValue, setRadioValue] = useState("");
@@ -663,6 +663,7 @@ const initializeSparql = () => {
           id: "import",
           fields: [
             {
+              // @ts-ignore
               Panel: TextPanel,
               title: "default label",
               description:
@@ -670,6 +671,7 @@ const initializeSparql = () => {
               defaultValue: DEFAULT_EXPORT_LABEL,
             },
             {
+              // @ts-ignore
               Panel: NumberPanel,
               title: "default limit",
               description:
@@ -677,6 +679,7 @@ const initializeSparql = () => {
               defaultValue: 10,
             },
             {
+              // @ts-ignore
               Panel: FlagPanel,
               title: "qualifiers",
               description:
@@ -735,9 +738,9 @@ const initializeSparql = () => {
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: "Run SPARQL Query",
     callback: () =>
-      window.roamAlphaAPI.ui.mainWindow
-        .getOpenPageOrBlockUid()
-        .then((parentUid) =>
+      window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid().then(
+        (parentUid) =>
+          parentUid &&
           render({
             blockUid:
               window.roamAlphaAPI.ui.getFocusedBlock()?.["block-uid"] ||
@@ -745,7 +748,7 @@ const initializeSparql = () => {
             queriesCache,
             parentUid,
           })
-        ),
+      ),
   });
 
   createHTMLObserver({

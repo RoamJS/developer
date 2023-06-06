@@ -2,7 +2,6 @@ import createHashtagObserver from "roamjs-components/dom/createHashtagObserver";
 import getUids from "roamjs-components/dom/getUids";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
-import runExtension from "roamjs-components/util/runExtension";
 import extractTag from "roamjs-components/util/extractTag";
 import { Icon, Popover, Spinner, Text } from "@blueprintjs/core";
 import axios from "axios";
@@ -326,8 +325,8 @@ const initializePostman = () => {
       const tree = getFullTreeByParentUid(
         getPageUidByPageTitle("roam/js/postman")
       ).children;
-      const tag = s.getAttribute("data-tag");
-      const apis = tree.find((t) => APIS_REGEX.test(t.text)).children;
+      const tag = s.getAttribute("data-tag") || "";
+      const apis = tree.find((t) => APIS_REGEX.test(t.text))?.children || [];
       const api = apis.find(
         (a) => tag.toUpperCase() === extractTag(a.text.trim()).toUpperCase()
       );

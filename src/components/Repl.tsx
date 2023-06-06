@@ -29,14 +29,14 @@ const EvalRepl = ({ code }: { code: string }) => {
           )
         );
       } catch (e) {
-        setOutput(e.message);
+        setOutput((e as Error).message);
       }
     }, 3000);
   }, [evalRef, code, setOutput]);
   return <code>{output}</code>;
 };
 
-const Repl: React.FC<ReplProps> = ({ blockUid }) => {
+const Repl = ({ blockUid }: ReplProps) => {
   const [code, setCode] = useState(
     () => getFullTreeByParentUid(blockUid).children?.[0]?.text
   );

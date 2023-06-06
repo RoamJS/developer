@@ -4,7 +4,7 @@ import getBlockUidFromTarget from "roamjs-components/dom/getBlockUidFromTarget";
 import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
 import createBlock from "roamjs-components/writes/createBlock";
 import extractRef from "roamjs-components/util/extractRef";
-import getCodeFromBlock from "./getCodeFromBlock";
+import getCodeFromBlock from "./utils/getCodeFromBlock";
 import getParentUidByBlockUid from "roamjs-components/queries/getParentUidByBlockUid";
 import getOrderByBlockUid from "roamjs-components/queries/getOrderByBlockUid";
 import getChildrenLengthByParentUid from "roamjs-components/queries/getChildrenLengthByParentUid";
@@ -12,9 +12,9 @@ import apiGet from "roamjs-components/util/apiGet";
 import { render as renderToast } from "roamjs-components/components/Toast";
 import createButtonObserver from "roamjs-components/dom/createButtonObserver";
 import { createComponentRender } from "roamjs-components/components/ComponentContainer";
-import Repl from "./Repl";
-import initializePostman from "./postman";
-import initializeSparql from "./sparql";
+import Repl from "./components/Repl";
+import initializePostman from "./features/postman";
+import initializeSparql from "./features/sparql";
 
 const AsyncFunction: FunctionConstructor = new Function(
   `return Object.getPrototypeOf(async function(){}).constructor`
@@ -43,7 +43,7 @@ export default runExtension({
     createHTMLObserver({
       className: "bp3-button",
       tag: "BUTTON",
-      callback: (b: HTMLButtonElement) => {
+      callback: (b) => {
         const parentUid = getBlockUidFromTarget(b);
         if (parentUid && !b.hasAttribute("data-roamjs-developer-button")) {
           b.setAttribute("data-roamjs-developer-button", "true");
@@ -104,10 +104,14 @@ export default runExtension({
           window.roamAlphaAPI.ui.getFocusedBlock()?.["block-uid"];
         const parentUid = blockUid
           ? getParentUidByBlockUid(blockUid)
-          : await window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid();
+          : await window.roamAlphaAPI.ui.mainWindow
+              .getOpenPageOrBlockUid()
+              .then(
+                (b) => b || window.roamAlphaAPI.util.dateToPageUid(new Date())
+              );
         const base = blockUid
           ? getOrderByBlockUid(blockUid)
-          : getChildrenLengthByParentUid(blockUid);
+          : getChildrenLengthByParentUid(parentUid);
         return apiGet<{ data: { title: string; html_url: string }[] }>({
           domain: "https://api.github.com",
           path: "issues",
