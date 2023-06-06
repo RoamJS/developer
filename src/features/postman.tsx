@@ -3,7 +3,7 @@ import getUids from "roamjs-components/dom/getUids";
 import getFullTreeByParentUid from "roamjs-components/queries/getFullTreeByParentUid";
 import getPageUidByPageTitle from "roamjs-components/queries/getPageUidByPageTitle";
 import extractTag from "roamjs-components/util/extractTag";
-import { Icon, Popover, Spinner, Text } from "@blueprintjs/core";
+import { Icon, Popover, Spinner } from "@blueprintjs/core";
 import axios from "axios";
 import React, { useCallback, useState } from "react";
 import ReactDOM from "react-dom";
@@ -13,6 +13,9 @@ import { syncParseRoamBlocksToHtml } from "roamjs-components/dom/parseRoamBlocks
 import createTagRegex from "roamjs-components/util/createTagRegex";
 import getTextByBlockUid from "roamjs-components/queries/getTextByBlockUid";
 import getPageTitleByBlockUid from "roamjs-components/queries/getPageTitleByBlockUid";
+import createHTMLObserver from "roamjs-components/dom/createHTMLObserver";
+import getPageTitleValueByHtmlElement from "roamjs-components/dom/getPageTitleValueByHtmlElement";
+import getSettingValueFromTree from "roamjs-components/util/getSettingValueFromTree";
 
 const getRoamUrl = (blockUid?: string): string =>
   `${window.location.href.replace(/\/page\/.*$/, "")}${
@@ -205,7 +208,7 @@ const PostmanOverlay: React.FunctionComponent<PostmanProps> = ({
     axios
       .post(url, body, { headers })
       .then((r) => {
-        setMessage(`Success! Response: ${JSON.stringify(r.data, null, 4)}`);
+        setMessage(`Success! Response:\n${JSON.stringify(r.data, null, 4)}`);
         setIsError(false);
         setTimeout(() => setIsOpen(false), 10000);
       })
@@ -219,6 +222,7 @@ const PostmanOverlay: React.FunctionComponent<PostmanProps> = ({
           icon={"send-message"}
           onClick={onClick}
           style={{ marginLeft: 8 }}
+          className={"cursor-pointer"}
         />
       }
       content={
@@ -233,7 +237,7 @@ const PostmanOverlay: React.FunctionComponent<PostmanProps> = ({
                 maxWidth: 600,
               }}
             >
-              <Text>{message}</Text>
+              {message}
             </div>
           )}
         </div>
@@ -326,7 +330,13 @@ const initializePostman = () => {
         getPageUidByPageTitle("roam/js/postman")
       ).children;
       const tag = s.getAttribute("data-tag") || "";
-      const apis = tree.find((t) => APIS_REGEX.test(t.text))?.children || [];
+      const apis = (
+        tree.find((t) => APIS_REGEX.test(t.text))?.children || []
+      ).filter(
+        (a) =>
+          getSettingValueFromTree({ tree: a.children, key: "target" }) !==
+          "page"
+      );
       const api = apis.find(
         (a) => tag.toUpperCase() === extractTag(a.text.trim()).toUpperCase()
       );
@@ -340,6 +350,48 @@ const initializePostman = () => {
         s.appendChild(p);
         ReactDOM.render(
           <PostmanOverlay apiUid={api.uid} blockUid={blockUid} />,
+          p
+        );
+      }
+    },
+  });
+
+  createHTMLObserver({
+    tag: "H1",
+    className: "rm-title-display",
+    callback: (h) => {
+      const title = getPageTitleValueByHtmlElement(h);
+      const metadata = new Set(
+        (
+          window.roamAlphaAPI.data.fast.q(`
+      [:find ?t 
+        :where 
+          [?p :node/title "${title}"] 
+          [?b :block/page ?p] 
+          [?b :block/refs ?r] 
+          [?r :node/title ?t]
+      ]
+     `) as [string][]
+        ).map(([t]) => t)
+      );
+      const tree = getFullTreeByParentUid(
+        getPageUidByPageTitle("roam/js/postman")
+      ).children;
+      const apis = tree.find((t) => APIS_REGEX.test(t.text))?.children || [];
+      const pageApis = apis.filter(
+        (a) =>
+          getSettingValueFromTree({ tree: a.children, key: "target" }) ===
+          "page"
+      );
+      const api = pageApis.find((a) => metadata.has(a.text.trim()));
+      if (api && h.parentElement) {
+        const pageUid = getPageUidByPageTitle(title);
+        const p = document.createElement("span");
+        p.style.verticalAlign = "middle";
+        p.onmousedown = (e: MouseEvent) => e.stopPropagation();
+        h.parentElement.appendChild(p);
+        ReactDOM.render(
+          <PostmanOverlay apiUid={api.uid} blockUid={pageUid} />,
           p
         );
       }
