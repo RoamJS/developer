@@ -1,6 +1,6 @@
 {
   "name": "developer",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Develop and publish your own Roam extensions with the help of RoamJS!",
   "main": "./build/main.js",
   "scripts": {
