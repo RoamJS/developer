@@ -22,6 +22,8 @@ You can also create a live REPL by entering a `{{repl}}` button inside of a bloc
 
 ## Developing outside of Roam
 
+We recommend checking out the [Roam Depot Docs](https://roamresearch.com/#/app/developer-documentation/page/5BB8h4I7b) for developing your extension outside of Roam. One major benefit you get from this approach over the previous one is access to a new `extensionAPI` that gets passed into your extension's `onload` function.
+
 RoamJS manages two NPM packages, both of which have been vetted by the Roam team themselves:
 
 - [RoamJS Components](https://roamjs.com/extensions/developer/roamjs_components) - This package contains all of the UI components and utilities RoamJS uses to build extensions
