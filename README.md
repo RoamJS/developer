@@ -10,13 +10,13 @@ The Developer extension on RoamJS helps other software engineers develop and sha
 
 To get started developing within Roam, simply enter three back ticks into a block. Roam natively will render a code editor where you can start writing your logic.
 
-![](https://firebasestorage.googleapis.com/v0/b/firescript-577a2.appspot.com/o/imgs%2Fapp%2Froamjs%2FcpGj9vg1c2.00.17%20PM.png?alt=media&token=ced7a892-2ec5-419f-9d2b-93b07911b242)
+![](https://github.com/RoamJS/developer/assets/3792666/40d2e6d6-4835-49b6-832c-f7e12ed2a36d)
 
 To easily invoke this logic without having to reload Roam each time, create a button in Roam with the following syntax: `{{name:developer:uid}}`. Clicking this button will look for a code block within the block referenced by `uid` and invoke the logic contained within it. `name` could be any text value that doesn't contain a colon that you want.
 
-![](https://firebasestorage.googleapis.com/v0/b/firescript-577a2.appspot.com/o/imgs%2Fapp%2Froamjs%2FdFr9G-GW1f.00.59%20PM.png?alt=media&token=b7515150-a650-40d2-b608-1ee88b32d849)
+![](https://github.com/RoamJS/developer/assets/3792666/ef89d604-126a-4375-a0d6-758920886e5b)
 
-![](https://firebasestorage.googleapis.com/v0/b/firescript-577a2.appspot.com/o/imgs%2Fapp%2Froamjs%2FPjrj8kZex0.01.09%20PM.png?alt=media&token=a00101b0-0d22-48bc-bc6f-6dc1b2b3bb2f)
+![](https://github.com/RoamJS/developer/assets/3792666/7ed3302c-bb95-40fb-8948-d507b4cbfca9)
 
 You can also create a live REPL by entering a `{{repl}}` button inside of a block.
 
@@ -26,8 +26,8 @@ We recommend checking out the [Roam Depot Docs](https://roamresearch.com/#/app/d
 
 RoamJS manages two NPM packages, both of which have been vetted by the Roam team themselves:
 
-- [RoamJS Components](https://roamjs.com/extensions/developer/roamjs_components) - This package contains all of the UI components and utilities RoamJS uses to build extensions
-- [RoamJS Scripts](https://roamjs.com/extensions/developer/roamjs_scripts) - This package contains all of the build scripts and command line utilities RoamJS uses to build extensions
+- [RoamJS Components](https://npmjs.com/roamjs-components) - This package contains all of the UI components and utilities RoamJS uses to build extensions
+- [SamePage Scripts](https://www.npmjs.com/package/@samepage/scripts) - This package contains all of the build scripts and command line utilities RoamJS uses to build extensions
 
 These packages are what all RoamJS extensions are built on top of. As a developer, you are not required to use either of these extensions, but they exist to make your life easier getting started.
 
@@ -41,7 +41,7 @@ To import GitHub issues you have open, open the Roam Command Palette and enter `
 
 When the extension is installed, it will set up a config page for you at `roam/js/postman` like the one below:
 
-![](https://firebasestorage.googleapis.com/v0/b/firescript-577a2.appspot.com/o/imgs%2Fapp%2Froamjs%2Fi6KNstFsKI.png)
+![image](https://github.com/RoamJS/developer/assets/3792666/22ce3424-c00c-41c8-b23a-6f93182fcc13)
 
 The structure of the config is as follows:
 
@@ -55,7 +55,11 @@ The structure of the config is as follows:
     - `{attribute:{field}}` - Finds a child block with the Roam attribute of "field" (case-insensitive), and replaces with the attribute value. For example, a configuration of `{attribute:foo}` on a block with a child of `Foo:: bar` will replace the placeholder with `"bar"`.
   - headers - The set of headers to send with the request, useful for sending Authorization or other headers. Just like body, each child represents the header name, and the child of the header name is the header value.
 
-The image above renders an icon next to any `#[[PostmanExample]]` tags. Clicking the icon on a block that says `Send This! #[[PostmanExample]]` would send the following request:
+The image above renders an icon next to any `#[[PostmanExample]]` tags.
+
+![image](https://github.com/RoamJS/developer/assets/3792666/7911f95b-1a5d-4382-804b-75c72516760e)
+
+Clicking the icon on a block would send the following request:
 
 ```json
 {
@@ -95,7 +99,7 @@ The `body` has a default type of `{object}`. We could change this by using one o
 
 All other values have a default type of `{string}`. See the example below for how to specify a value of each type:
 
-![](https://firebasestorage.googleapis.com/v0/b/firescript-577a2.appspot.com/o/imgs%2Fapp%2Froamjs%2Fgr_otEhBA5.png)
+![image](https://github.com/RoamJS/developer/assets/3792666/2674e944-32b3-4cc0-8360-2a085f5da80c)
 
 This example would send the following body:
 
@@ -133,8 +137,6 @@ You could write your own query in the code box in the dialog. The code block sup
 You could define a custom global default label on the `roam/js/sparql` page. Each query could also use its own label, accessible by expanding the additional options. The `{date}` placeholder can be used to record the datetime of the import.
 
 ## Resources
-
-Most existing developer documentation lives at [developer.roamjs.com](https://developer.roamjs.com). Stay tuned while we migrate that information to RoamJS.
 
 Check out [this video](https://www.youtube.com/watch?v=SjGHqTQAhPE) from [Ivo Velitchkov](https://twitter.com/kvistgaard/status/1430161802214748164) on importing data from Wikdata into your Roam database!
 

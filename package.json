@@ -12,7 +12,7 @@
   "dependencies": {
     "@dvargas92495/codemirror": "^5.65.11",
     "@dvargas92495/react-codemirror2": "^7.2.9",
-    "roamjs-components": "^0.79.3"
+    "roamjs-components": "^0.82.0"
   },
   "samepage": {
     "extends": "node_modules/roamjs-components/package.json"
