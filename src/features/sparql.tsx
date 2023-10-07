@@ -131,6 +131,17 @@ const combineTextNodes = (nodes: InputTextNode[] = []) =>
       return node;
     });
 
+type SparqlResult = {
+  results: {
+    bindings: {
+      [k: string]: { value: string; type: string };
+    }[];
+  };
+  head: {
+    vars: string[];
+  };
+};
+
 export const runSparqlQuery = ({
   query,
   source,
@@ -140,19 +151,13 @@ export const runSparqlQuery = ({
   parentUid: string;
 } & RenderProps["queriesCache"][string]): Promise<void> =>
   apiGet<{
-    results: {
-      bindings: {
-        [k: string]: { value: string; type: string };
-      }[];
-    };
-    head: {
-      vars: string[];
-    };
+    data: string;
   }>({ href: `${source}${encodeURIComponent(query)}`, anonymous: true }).then(
     (r) => {
-      const data = r.results.bindings;
+      const dataContents: SparqlResult = JSON.parse(r.data);
+      const data = dataContents.results.bindings;
       if (data.length) {
-        const head = r.head.vars as string[];
+        const head = dataContents.head.vars as string[];
         const loadingUid = createBlock({
           node: {
             text: "Loading...",
@@ -419,6 +424,7 @@ const SparqlQuery = ({
       title={"SPARQL Import"}
       canEscapeKeyClose
       canOutsideClickClose
+      autoFocus={false}
     >
       <div className={Classes.DIALOG_BODY}>
         <Label>
