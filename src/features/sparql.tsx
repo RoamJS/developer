@@ -157,7 +157,7 @@ export const runSparqlQuery = ({
       const dataContents: SparqlResult = JSON.parse(r.data);
       const data = dataContents.results.bindings;
       if (data.length) {
-        const head = JSON.parse(r.data).head.vars as string[];
+        const head = dataContents.head.vars as string[];
         const loadingUid = createBlock({
           node: {
             text: "Loading...",
