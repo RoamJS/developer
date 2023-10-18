@@ -498,15 +498,6 @@ const SparqlQuery = ({
             <div>
               <CustomQueryEmbed uid={customQueryUid} />
             </div>
-            {/* <CodeMirror
-              value={codeValue}
-              options={{
-                mode: { name: "sparql" },
-                lineNumbers: true,
-                lineWrapping: true,
-              }}
-              onBeforeChange={(_, __, v) => setCodeValue(v)}
-            /> */}
             <div className="mt-2 inline-block w-full">
               <Label>
                 SPARQL Endpoint
@@ -604,7 +595,6 @@ const SparqlQuery = ({
               const customQuery = isQuery
                 ? getCodeFromBlock(getTextByBlockUid(customQueryUid))
                 : "";
-
               const labelUid = await createBlock({
                 node: {
                   text: getLabel({ outputFormat, label }),
