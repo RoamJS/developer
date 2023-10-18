@@ -19,8 +19,6 @@ import {
   Checkbox,
   InputGroup,
 } from "@blueprintjs/core";
-import { Controlled as CodeMirror } from "@dvargas92495/react-codemirror2";
-import "@dvargas92495/codemirror/mode/sparql/sparql";
 import React, {
   useCallback,
   useEffect,
@@ -49,6 +47,9 @@ import extractTag from "roamjs-components/util/extractTag";
 import renderOverlay from "roamjs-components/util/renderOverlay";
 import addStyle from "roamjs-components/dom/addStyle";
 import getFirstChildUidByBlockUid from "roamjs-components/queries/getFirstChildUidByBlockUid";
+import getSubTree from "roamjs-components/util/getSubTree";
+import getCodeFromBlock from "../utils/getCodeFromBlock";
+import { render as renderToast } from "roamjs-components/components/Toast";
 
 // https://github.com/spamscanner/url-regex-safe/blob/master/src/index.js
 const protocol = `(?:https?://)`;
@@ -316,7 +317,6 @@ const SparqlQuery = ({
     WIKIDATA_ITEMS[0]
   );
   const [radioValue, setRadioValue] = useState("");
-  const [codeValue, setCodeValue] = useState("");
   const [showAdditionalOptions, setShowAdditionalOptions] = useState(false);
   const toggleAdditionalOptions = useCallback(
     () => setShowAdditionalOptions(!showAdditionalOptions),
@@ -329,6 +329,27 @@ const SparqlQuery = ({
       )?.children || [],
     [configUid]
   );
+
+  const [customQueryUid, setCustomQueryUid] = useState("");
+
+  useEffect(() => {
+    const currentCustomQueryParent = getSubTree({
+      key: "customQuery",
+      parentUid: configUid,
+    });
+
+    if (!currentCustomQueryParent.children.length) {
+      createBlock({
+        node: {
+          text: "```sparql```",
+        },
+        parentUid: currentCustomQueryParent.uid,
+      }).then((uid) => setCustomQueryUid(uid));
+    } else {
+      setCustomQueryUid(currentCustomQueryParent.children[0].uid);
+    }
+  }, [configUid]);
+
   const [label, setLabel] = useState(
     getSettingValueFromTree({
       tree: importTree,
@@ -370,18 +391,9 @@ const SparqlQuery = ({
 `
             : ""
         );
-    } else if (activeItem === "Custom Query") {
-      if (LIMIT_REGEX.test(codeValue)) {
-        return codeValue.replace(
-          LIMIT_REGEX,
-          (_, l) => `LIMIT ${Math.min(l, limit)}`
-        );
-      } else {
-        return `${codeValue}\nLIMIT ${limit}`;
-      }
     }
     return "";
-  }, [codeValue, radioValue, activeItem, limit, importQualifiers]);
+  }, [radioValue, activeItem, limit, importQualifiers]);
   const [pageResults, setPageResults] = useState<PageResult[]>([]);
   const searchQuery = useMemo(
     () => (activeItem === "Current Block" ? blockString : pageTitle),
@@ -417,6 +429,21 @@ const SparqlQuery = ({
     },
     [setLoading, setError]
   );
+
+  const CustomQueryEmbed = ({ uid }: { uid: string }) => {
+    const contentRef = useRef(null);
+    useEffect(() => {
+      const el = contentRef.current;
+      if (el) {
+        window.roamAlphaAPI.ui.components.renderBlock({
+          uid,
+          el,
+        });
+      }
+    }, [contentRef]);
+    return <div className="roamjs-customquery-embed" ref={contentRef}></div>;
+  };
+
   return (
     <Dialog
       isOpen={true}
@@ -425,6 +452,7 @@ const SparqlQuery = ({
       canEscapeKeyClose
       canOutsideClickClose
       autoFocus={false}
+      enforceFocus={false}
     >
       <div className={Classes.DIALOG_BODY}>
         <Label>
@@ -467,24 +495,19 @@ const SparqlQuery = ({
         )}
         {activeItem === "Custom Query" && (
           <div style={{ marginTop: 16 }} className={"roamjs-sparql-editor"}>
-            <CodeMirror
-              value={codeValue}
-              options={{
-                mode: { name: "sparql" },
-                lineNumbers: true,
-                lineWrapping: true,
-              }}
-              onBeforeChange={(_, __, v) => setCodeValue(v)}
-            />
-            <span style={{ marginTop: 8, display: "inline-block" }}>
+            <div>
+              <CustomQueryEmbed uid={customQueryUid} />
+            </div>
+            <div className="mt-2 inline-block w-full">
               <Label>
                 SPARQL Endpoint
                 <InputGroup
                   value={dataSource}
                   onChange={(e) => setDataSource(e.target.value)}
+                  fill={true}
                 />
               </Label>
-            </span>
+            </div>
           </div>
         )}
         {showAdditionalOptions && (
@@ -551,8 +574,10 @@ const SparqlQuery = ({
           <span style={{ color: "darkred" }}>{error}</span>
           {loading && <Spinner size={Spinner.SIZE_SMALL} />}
           <Button
+            intent="primary"
+            icon={"bring-data"}
             text={"Import"}
-            disabled={activeItem === "Custom Query" ? !codeValue : !radioValue}
+            disabled={activeItem === "Custom Query" ? false : !radioValue}
             onClick={async () => {
               setLoading(true);
               const importParentUid =
@@ -566,6 +591,10 @@ const SparqlQuery = ({
                   },
                 });
               }
+              // get custom query at time of submit
+              const customQuery = isQuery
+                ? getCodeFromBlock(getTextByBlockUid(customQueryUid))
+                : "";
               const labelUid = await createBlock({
                 node: {
                   text: getLabel({ outputFormat, label }),
@@ -574,7 +603,7 @@ const SparqlQuery = ({
                 order: isQuery ? 0 : 1,
               });
               const queryInfo = {
-                query,
+                query: isQuery ? customQuery : query,
                 source: dataSource,
                 outputFormat,
               };
@@ -710,7 +739,6 @@ const initializeSparql = () => {
       };
     });
   }
-
   createBlockObserver((b) => {
     if (!b.hasAttribute("roamjs-sparql-update-button")) {
       b.setAttribute("roamjs-sparql-update-button", "true");
@@ -743,18 +771,25 @@ const initializeSparql = () => {
 
   window.roamAlphaAPI.ui.commandPalette.addCommand({
     label: "Run SPARQL Query",
-    callback: () =>
-      window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid().then(
-        (parentUid) =>
-          parentUid &&
-          render({
-            blockUid:
-              window.roamAlphaAPI.ui.getFocusedBlock()?.["block-uid"] ||
-              getFirstChildUidByBlockUid(parentUid),
-            queriesCache,
-            parentUid,
-          })
-      ),
+    callback: async () => {
+      const parentUid =
+        (await window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid()) ||
+        window.roamAlphaAPI.util.dateToPageUid(new Date());
+      if (!parentUid)
+        return renderToast({
+          id: "roamjs-sparql-query",
+          content: "Didn't recognize page",
+        });
+      const blockUid =
+        window.roamAlphaAPI.ui.getFocusedBlock()?.["block-uid"] ||
+        getFirstChildUidByBlockUid(parentUid);
+      if (!blockUid)
+        return renderToast({
+          id: "roamjs-sparql-query",
+          content: "No block found",
+        });
+      render({ blockUid, queriesCache, parentUid });
+    },
   });
 
   createHTMLObserver({
