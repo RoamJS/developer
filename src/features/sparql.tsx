@@ -19,8 +19,6 @@ import {
   Checkbox,
   InputGroup,
 } from "@blueprintjs/core";
-import { Controlled as CodeMirror } from "@dvargas92495/react-codemirror2";
-import "@dvargas92495/codemirror/mode/sparql/sparql";
 import React, {
   useCallback,
   useEffect,
@@ -318,7 +316,6 @@ const SparqlQuery = ({
     WIKIDATA_ITEMS[0]
   );
   const [radioValue, setRadioValue] = useState("");
-  const [codeValue, setCodeValue] = useState("");
   const [showAdditionalOptions, setShowAdditionalOptions] = useState(false);
   const toggleAdditionalOptions = useCallback(
     () => setShowAdditionalOptions(!showAdditionalOptions),
@@ -393,18 +390,9 @@ const SparqlQuery = ({
 `
             : ""
         );
-    } else if (activeItem === "Custom Query") {
-      if (LIMIT_REGEX.test(codeValue)) {
-        return codeValue.replace(
-          LIMIT_REGEX,
-          (_, l) => `LIMIT ${Math.min(l, limit)}`
-        );
-      } else {
-        return `${codeValue}\nLIMIT ${limit}`;
-      }
     }
     return "";
-  }, [codeValue, radioValue, activeItem, limit, importQualifiers]);
+  }, [radioValue, activeItem, limit, importQualifiers]);
   const [pageResults, setPageResults] = useState<PageResult[]>([]);
   const searchQuery = useMemo(
     () => (activeItem === "Current Block" ? blockString : pageTitle),
