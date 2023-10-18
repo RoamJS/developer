@@ -331,13 +331,26 @@ const SparqlQuery = ({
       )?.children || [],
     [configUid]
   );
-  const currentCustomQueryTree = useMemo(
-    () =>
-      getFullTreeByParentUid(configUid).children.find((t) =>
-        toFlexRegex("customQuery").test(t.text)
-      )?.children || [],
-    [configUid]
-  );
+
+  const [customQueryUid, setCustomQueryUid] = useState("");
+
+  useEffect(() => {
+    const currentCustomQueryParent = getSubTree({
+      key: "customQuery",
+      parentUid: configUid,
+    });
+
+    if (!currentCustomQueryParent.children.length) {
+      createBlock({
+        node: {
+          text: "```sparql```",
+        },
+        parentUid: currentCustomQueryParent.uid,
+      }).then((uid) => setCustomQueryUid(uid));
+    } else {
+      setCustomQueryUid(currentCustomQueryParent.children[0].uid);
+    }
+  }, [configUid]);
 
   const [label, setLabel] = useState(
     getSettingValueFromTree({
@@ -594,10 +607,9 @@ const SparqlQuery = ({
                   },
                 });
               }
+              // get custom query at time of submit
               const customQuery = isQuery
-                ? getCodeFromBlock(
-                    getTextByBlockUid(currentCustomQueryTree[0].uid)
-                  )
+                ? getCodeFromBlock(getTextByBlockUid(customQueryUid))
                 : "";
 
               const labelUid = await createBlock({
@@ -663,7 +675,6 @@ export const render = (props: RenderProps): void => {
 
 const ID = "sparql";
 const CONFIG = `roam/js/${ID}`;
-const configPageUid = getPageUidByPageTitle(CONFIG);
 const queriesCache: RenderProps["queriesCache"] = {};
 
 const initializeSparql = () => {
@@ -743,19 +754,6 @@ const initializeSparql = () => {
         source: cache[1]?.text,
         outputFormat: cache[2]?.text as OutputFormat,
       };
-    });
-  }
-  const currentCustomQueryParent = getSubTree({
-    key: "customQuery",
-    parentUid: configPageUid,
-  });
-
-  if (!currentCustomQueryParent.children.length) {
-    return createBlock({
-      node: {
-        text: "```sparql```",
-      },
-      parentUid: currentCustomQueryParent.uid,
     });
   }
   createBlockObserver((b) => {
