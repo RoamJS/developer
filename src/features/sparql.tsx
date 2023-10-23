@@ -61,9 +61,17 @@ const path = "(?:[/?#][^\\s\"\\)']*)?";
 const regex = `(?:${protocol}|www\\.)(?:${host}${domain}${tld})${port}${path}`;
 const URL_REGEX = new RegExp(regex, "ig");
 
+const WIKIDATA_ITEMS = [
+  "Current Page",
+  "Current Block",
+  "Custom Query",
+] as const;
+
 type PageResult = { description: string; id: string; label: string };
 const OUTPUT_FORMATS = ["Parent", "Line", "Table"] as const;
 export type OutputFormat = (typeof OUTPUT_FORMATS)[number];
+type WikiDataItems = (typeof WIKIDATA_ITEMS)[number];
+
 export type RenderProps = {
   queriesCache: {
     [uid: string]: {
@@ -74,6 +82,8 @@ export type RenderProps = {
   };
   parentUid: string;
   blockUid: string;
+  initialActiveItem?: WikiDataItems;
+  firstSparqlUid?: string;
 };
 
 export const DEFAULT_EXPORT_LABEL = "SPARQL Import";
@@ -102,11 +112,6 @@ const PAGE_QUERY = `SELECT ?property ?propertyLabel ?value ?valueLabel {QUALIFIE
 ORDER BY ?property ?statement ?value
 LIMIT {LIMIT}`;
 
-const WIKIDATA_ITEMS = [
-  "Current Page",
-  "Current Block",
-  "Custom Query",
-] as const;
 const LIMIT_REGEX = /LIMIT ([\d]*)/;
 const IMAGE_REGEX_URL =
   /(http(s?):)([/|.|\w|\s|\-|:|%])*\.(?:jpg|gif|png|svg)/i;
@@ -283,6 +288,8 @@ const SparqlQuery = ({
   queriesCache,
   parentUid,
   blockUid: _blockUid,
+  initialActiveItem,
+  firstSparqlUid,
 }: {
   onClose: () => void;
 } & RenderProps): React.ReactElement => {
@@ -314,7 +321,7 @@ const SparqlQuery = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [activeItem, setActiveItem] = useState<(typeof WIKIDATA_ITEMS)[number]>(
-    WIKIDATA_ITEMS[0]
+    initialActiveItem ?? WIKIDATA_ITEMS[0]
   );
   const [radioValue, setRadioValue] = useState("");
   const [showAdditionalOptions, setShowAdditionalOptions] = useState(false);
@@ -330,22 +337,21 @@ const SparqlQuery = ({
     [configUid]
   );
 
-  const [customQueryUid, setCustomQueryUid] = useState("");
-
+  const [customQueryUid, setCustomQueryUid] = useState(firstSparqlUid ?? "");
   useEffect(() => {
     const currentCustomQueryParent = getSubTree({
       key: "customQuery",
       parentUid: configUid,
     });
 
-    if (!currentCustomQueryParent.children.length) {
+    if (!currentCustomQueryParent.children.length && !customQueryUid) {
       createBlock({
         node: {
           text: "```sparql```",
         },
         parentUid: currentCustomQueryParent.uid,
       }).then((uid) => setCustomQueryUid(uid));
-    } else {
+    } else if (!customQueryUid) {
       setCustomQueryUid(currentCustomQueryParent.children[0].uid);
     }
   }, [configUid]);
@@ -789,6 +795,50 @@ const initializeSparql = () => {
           content: "No block found",
         });
       render({ blockUid, queriesCache, parentUid });
+    },
+  });
+  window.roamAlphaAPI.ui.commandPalette.addCommand({
+    label: "Run SPARQL Query: Custom",
+    callback: async () => {
+      // TODO extract duplicate into single function
+      const parentUid =
+        (await window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid()) ||
+        window.roamAlphaAPI.util.dateToPageUid(new Date());
+      if (!parentUid)
+        return renderToast({
+          id: "roamjs-sparql-query",
+          content: "Didn't recognize page",
+        });
+      const blockUid =
+        window.roamAlphaAPI.ui.getFocusedBlock()?.["block-uid"] ||
+        getFirstChildUidByBlockUid(parentUid);
+      if (!blockUid)
+        return renderToast({
+          id: "roamjs-sparql-query",
+          content: "No block found",
+        });
+
+      const sparqlResults = window.roamAlphaAPI.q(`
+        [:find (pull ?b [:block/uid :edit/time])
+        :where 
+            [?pageUid :block/uid "${parentUid}"]
+            [?b :block/page ?pageUid]
+            [?b :block/string ?s]
+            [(clojure.string/includes? ?s "\`\`\`sparql")]]
+        `) as { uid: string; time: number }[][] | null;
+
+      // grab the last edited
+      const firstSparqlUid = sparqlResults
+        ?.slice()
+        .sort((a, b) => b[0].time - a[0].time)[0]?.[0]?.uid;
+
+      render({
+        blockUid,
+        queriesCache,
+        parentUid,
+        initialActiveItem: "Custom Query",
+        firstSparqlUid,
+      });
     },
   });
 
