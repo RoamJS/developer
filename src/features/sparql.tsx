@@ -584,12 +584,13 @@ const SparqlQuery = ({
             icon={"bring-data"}
             text={"Import"}
             disabled={activeItem === "Custom Query" ? false : !radioValue}
+            className="flex-shrink-0"
             onClick={async () => {
               setLoading(true);
               const importParentUid =
                 activeItem === "Current Page" ? parentUid : blockUid;
-              const isQuery = activeItem === "Custom Query";
-              if (!isQuery) {
+              const isCustom = activeItem === "Custom Query";
+              if (!isCustom) {
                 createBlock({
                   parentUid: importParentUid,
                   node: {
@@ -598,7 +599,7 @@ const SparqlQuery = ({
                 });
               }
               // get custom query at time of submit
-              const customQuery = isQuery
+              const customQuery = isCustom
                 ? getCodeFromBlock(getTextByBlockUid(customQueryUid))
                 : "";
               const labelUid = await createBlock({
@@ -606,10 +607,10 @@ const SparqlQuery = ({
                   text: getLabel({ outputFormat, label }),
                 },
                 parentUid: importParentUid,
-                order: isQuery ? 0 : 1,
+                order: isCustom ? 0 : 1,
               });
               const queryInfo = {
-                query: isQuery ? customQuery : query,
+                query: isCustom ? customQuery : query,
                 source: dataSource,
                 outputFormat,
               };
@@ -629,7 +630,7 @@ const SparqlQuery = ({
                   node: {
                     text: labelUid,
                     children: [
-                      { text: query },
+                      { text: queryInfo.query },
                       { text: queryInfo.source },
                       { text: outputFormat },
                     ],
