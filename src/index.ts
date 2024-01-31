@@ -36,6 +36,12 @@ export default runExtension(async (args) => {
         action: { type: "input", placeholder: "ghp_xxx..." },
         description: "The GitHub token to use during quering",
       },
+      {
+        id: "disable_sparql",
+        name: "Disable Sparql",
+        action: { type: "input", placeholder: "ghp_xxx..." },
+        description: "Disable the Sparql module",
+      },
     ],
   });
 
@@ -153,7 +159,7 @@ export default runExtension(async (args) => {
   });
 
   initializePostman();
-  initializeSparql();
+  if (!args.extensionAPI.settings.get("disable_sparql")) initializeSparql();
 
   return {
     commands: ["Import My GitHub Issues"],
