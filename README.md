@@ -2,6 +2,8 @@
 
 Develop and publish your own Roam extensions with the help of RoamJS!
 
+[![RoamJS](https://roamjs.com/badges/website.svg)](https://roamjs.com/) [![DeepWiki](https://roamjs.com/badges/deepwiki.svg)](https://deepwiki.com/RoamJS/developer) [![Slack](https://roamjs.com/badges/slack.svg)](https://roamresearch.slack.com/archives/C016N2B66JU)
+
 ## Usage
 
 The Developer extension on RoamJS helps other software engineers develop and share extensions with other Roam users! It provides features for developing from within Roam as well as exposing methods from RoamJS' official [npm package](https://npmjs.com/roamjs-components).
